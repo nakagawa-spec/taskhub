@@ -236,9 +236,57 @@
   .gate .btn{padding:11px 16px; font-size:.95rem;}
   .gate-err{color:var(--danger); font-size:.8rem; text-align:center; min-height:1em;}
 
+  button.stat{font-family:inherit; color:inherit; cursor:pointer;}
+  button.stat:hover{border-color:color-mix(in srgb, var(--accent) 40%, var(--border));}
+
   @media (max-width:480px){
     .row2 > .field{min-width:100%;}
     h1{font-size:1.3rem;}
+  }
+
+  /* ---- スマホ ---- */
+  @media (max-width:600px){
+    body{padding-block:12px 96px;}
+    .wrap{gap:14px;}
+    header{gap:10px;}
+    h1{font-size:1.25rem;}
+    .tagline{display:none;}
+    .addbtn{position:fixed; right:16px; bottom:calc(16px + env(safe-area-inset-bottom,0px)); z-index:40; width:58px; height:58px; border-radius:50%; padding:0; justify-content:center; font-size:0; box-shadow:0 6px 20px rgba(20,18,10,.25);}
+    .addbtn svg{width:26px; height:26px;}
+    .view-tabs{align-self:stretch;}
+    .view-tab{flex:1; justify-content:center; padding:9px 10px;}
+    .stats{gap:6px; flex-wrap:nowrap;}
+    .stat{flex:1; justify-content:center; padding:8px 6px; gap:4px;}
+    .stat b{font-size:1rem;}
+    .layout, .col-main, .side-col{gap:14px;}
+    .side-card{padding:12px 10px; border-radius:14px; gap:9px;}
+    .side-card:hover{box-shadow:var(--shadow); border-color:var(--border);}
+    .side-card h3{font-size:.9rem; padding-left:2px;}
+    .date-subhead{font-size:.8rem;}
+
+    .task{flex-wrap:wrap; padding:10px 10px 6px; gap:6px 10px;}
+    .task:hover{transform:none; box-shadow:none;}
+    .drag-handle{display:none;}
+    .check{width:24px; height:24px; margin-top:0;}
+    .task-body{flex:1 1 0; min-width:0;}
+    .task-title{font-size:.98rem; line-height:1.45;}
+    .task-due{font-size:.86rem;}
+    .task-meta{font-size:.78rem; gap:6px 12px;}
+    .task-notes, .task-progress{font-size:.82rem;}
+    .task-actions{order:3; flex:1 1 100%; justify-content:flex-end; gap:2px; border-top:1px dashed var(--border); padding-top:4px; margin-left:34px;}
+    .icon-btn{min-width:38px; min-height:36px; padding:8px;}
+    .icon-btn.checklist-btn{padding:8px 9px;}
+    .subtask-item{font-size:.86rem; padding:3px 0;}
+    .subtask-item input[type=checkbox]{width:18px; height:18px;}
+
+    /* iPhone で入力時に画面が拡大されないよう 16px 以上にする */
+    .field input[type=text], .field input[type=url], .field input[type=date], .field input[type=number], .field textarea, .field select,
+    .searchrow input, .subtask-add input, .progress-edit input[type=text], .due-edit-input{font-size:16px;}
+    .panel{padding:14px 12px;}
+    .panel-actions .btn{flex:1; padding:12px;}
+    .qd-btn{font-size:.8rem; padding:6px 12px;}
+    .tools{justify-content:center;}
+    .tools .mode{flex:1 1 100%; text-align:center; margin-right:0;}
   }
 </style>
 </head>
@@ -261,7 +309,7 @@
         <h1>タスクハブ</h1>
         <div class="tagline">締切と繰り返しをまとめて見える化</div>
       </div>
-      <button class="addbtn" id="openAddBtn" type="button">
+      <button class="addbtn" id="openAddBtn" type="button" aria-label="タスクを追加">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>
         タスクを追加
       </button>
@@ -464,6 +512,10 @@
 
   function wireForm(){
     document.getElementById('openAddBtn').addEventListener('click', function(){ openPanel(null); });
+    document.getElementById('statsRow').addEventListener('click', function(e){
+      var b = e.target.closest('[data-jump]');
+      if(b) jumpTo(b.dataset.jump);
+    });
     document.querySelectorAll('.view-tab').forEach(function(b){
       b.addEventListener('click', function(){
         viewMode = b.dataset.view;
@@ -1198,9 +1250,20 @@
     var overdueCount = active.filter(function(t){ return t.dueDate && t.dueDate < today; }).length;
     var todayCount = active.filter(function(t){ return t.dueDate === today; }).length;
     document.getElementById('statsRow').innerHTML =
-      '<div class="stat"><b>'+active.length+'</b><span>未完了</span></div>' +
-      '<div class="stat overdue"><b>'+overdueCount+'</b><span>期限切れ</span></div>' +
-      '<div class="stat today"><b>'+todayCount+'</b><span>今日締切</span></div>';
+      '<button type="button" class="stat" data-jump=".layout"><b>'+active.length+'</b><span>未完了</span></button>' +
+      '<button type="button" class="stat overdue" data-jump=".overdue-card"><b>'+overdueCount+'</b><span>期限切れ</span></button>' +
+      '<button type="button" class="stat today" data-jump=".today-card"><b>'+todayCount+'</b><span>今日締切</span></button>';
+  }
+
+  // 件数ボタンを押すと、リストのそのカードまでスクロールする(スマホで縦に長いとき用)
+  function jumpTo(sel){
+    if(viewMode !== 'list'){
+      viewMode = 'list';
+      try{ localStorage.setItem('taskhub.view', viewMode); }catch(e){}
+      render();
+    }
+    var el = document.querySelector(sel);
+    if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
   }
 
   function wireRowEvents(){
