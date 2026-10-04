@@ -226,6 +226,8 @@
   .tools button:hover{color:var(--accent); border-color:var(--accent);}
   .banner.ok{background:var(--accent-soft); color:var(--accent);}
   .banner.err{background:var(--danger-soft); color:var(--danger);}
+  .update-bar{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;}
+  .update-bar .btn{padding:7px 14px; font-size:.8rem;}
 
   .gate{position:fixed; inset:0; background:var(--bg); display:flex; align-items:center; justify-content:center; padding:16px; z-index:50;}
   .gate form{background:var(--surface); border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow); padding:28px 24px; width:100%; max-width:360px; display:flex; flex-direction:column; gap:14px;}
@@ -328,6 +330,10 @@
       <input type="text" id="searchInput" placeholder="タスク名・備考・URLで検索">
     </div>
     <div class="stats" id="statsRow"></div>
+    <div class="banner ok update-bar" id="updateBar" hidden>
+      <span>新しいバージョンが公開されています。</span>
+      <button type="button" class="btn primary" id="updateBarBtn" data-update>最新に更新</button>
+    </div>
     <div id="dbBanner"></div>
   </header>
 
@@ -400,7 +406,8 @@
   <div id="listArea"><div class="loading">読み込み中…</div></div>
 
   <footer class="tools">
-    <span class="mode" id="modeLabel"></span>
+    <span class="mode"><span id="modeLabel"></span>　<span id="versionLabel"></span></span>
+    <button type="button" id="updateBtn" data-update>最新に更新</button>
     <button type="button" id="exportBtn">エクスポート</button>
     <button type="button" id="importBtn">インポート</button>
     <button type="button" id="forgetPassBtn" hidden>この端末の合言葉を消す</button>
@@ -922,6 +929,41 @@
     });
     window.addEventListener('beforeunload', function(e){
       if(API && outbox.length){ e.preventDefault(); e.returnValue = ''; }
+    });
+    document.getElementById('updateBtn').addEventListener('click', forceUpdate);
+    document.getElementById('updateBarBtn').addEventListener('click', forceUpdate);
+    document.getElementById('versionLabel').textContent = 'v' + APP_VERSION;
+    checkNewVersion();
+    document.addEventListener('visibilitychange', function(){ if(!document.hidden) checkNewVersion(); });
+  }
+
+  // ---------------------------------------------------------------- 画面の更新
+  // GitHub Pages は10分ほどキャッシュされるので、ボタンで最新の画面を取り直せるようにする。
+  // version.json の version が APP_VERSION と違えば、新しい画面が公開されている。
+  var APP_VERSION = '2026.10.04.3';
+  var updateNotified = false;
+
+  function checkNewVersion(){
+    if(updateNotified || location.protocol === 'file:') return;
+    fetch('version.json?t=' + Date.now(), {cache: 'no-store'})
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(v){
+        if(!v || !v.version || v.version === APP_VERSION) return;
+        updateNotified = true;
+        var bar = document.getElementById('updateBar');
+        bar.hidden = false;
+      }).catch(function(){});
+  }
+
+  function forceUpdate(){
+    var btns = document.querySelectorAll('[data-update]');
+    btns.forEach(function(b){ b.disabled = true; b.textContent = '更新中…'; });
+    // 未送信の変更を先に送ってから、画面のファイルをキャッシュを使わずに取り直す
+    var files = [location.pathname, 'config.js', 'favicon.svg', 'version.json'];
+    Promise.resolve(API ? flush() : null).catch(function(){}).then(function(){
+      return Promise.all(files.map(function(f){ return fetch(f, {cache: 'reload'}).catch(function(){}); }));
+    }).then(function(){
+      location.reload();
     });
   }
 
