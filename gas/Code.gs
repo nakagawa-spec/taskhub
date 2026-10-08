@@ -40,7 +40,8 @@ function doPost(e) {
 var ACTIONS = {
   load: load_,
   changes: changes_,
-  batch: batch_
+  batch: batch_,
+  garoon: garoon_
 };
 
 // ---------------------------------------------------------------- 合言葉
@@ -126,6 +127,62 @@ function nextVersion_() {
   var t = Math.max(Date.now(), last + 1);
   props.setProperty('lastVersion', String(t));
   return t;
+}
+
+// ---------------------------------------------------------------- ガルーン(読み取りのみ)
+// スクリプト プロパティ GAROON_URL(例 https://xxxx.cybozu.com)・GAROON_USER・GAROON_PASS を使う。
+// cybozu.com に Basic 認証をかけている場合だけ GAROON_BASIC(「ID:パスワード」)も設定する。
+
+/** date(YYYY-MM-DD)の1日分の予定を返す */
+function garoon_(req) {
+  var props = PropertiesService.getScriptProperties();
+  var base = String(props.getProperty('GAROON_URL') || '').trim().replace(/\/+$/, '');
+  var user = String(props.getProperty('GAROON_USER') || '').trim();
+  var pass = String(props.getProperty('GAROON_PASS') || '');
+  if (!base || !user || !pass) return { ok: false, error: 'ガルーンの設定(GAROON_URL・GAROON_USER・GAROON_PASS)がまだです', code: 'NO_GAROON' };
+  var date = String(req.date || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { ok: false, error: '日付の形式が正しくありません' };
+
+  var p = date.split('-');
+  var next = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]) + 1);
+  var nextStr = Utilities.formatDate(next, 'Asia/Tokyo', 'yyyy-MM-dd');
+  var query = [
+    'rangeStart=' + encodeURIComponent(date + 'T00:00:00+09:00'),
+    'rangeEnd=' + encodeURIComponent(nextStr + 'T00:00:00+09:00'),
+    'orderBy=' + encodeURIComponent('start asc'),
+    'limit=1000'
+  ].join('&');
+  var headers = { 'X-Cybozu-Authorization': Utilities.base64Encode(user + ':' + pass, Utilities.Charset.UTF_8) };
+  var basic = String(props.getProperty('GAROON_BASIC') || '');
+  if (basic) headers.Authorization = 'Basic ' + Utilities.base64Encode(basic, Utilities.Charset.UTF_8);
+
+  var res = UrlFetchApp.fetch(base + '/g/api/v1/schedule/events?' + query, { method: 'get', headers: headers, muteHttpExceptions: true });
+  var status = res.getResponseCode();
+  var body = parse_(res.getContentText()) || {};
+  if (status === 401) return { ok: false, error: 'ガルーンにログインできません(ログイン名・パスワードを確認してください)', code: 'GAROON_AUTH' };
+  if (status !== 200) return { ok: false, error: 'ガルーンから予定を取得できませんでした(' + status + (body.message ? ' ' + body.message : '') + ')' };
+
+  var events = (body.events || []).map(function (ev) {
+    return {
+      id: String(ev.id),
+      subject: ev.subject || '(件名なし)',
+      menu: ev.eventMenu || '',
+      start: ev.start && ev.start.dateTime || '',
+      end: ev.end && ev.end.dateTime || '',
+      allDay: !!ev.isAllDay,
+      startOnly: !!ev.isStartOnly,
+      facilities: (ev.facilities || []).map(function (f) { return f.name; }).filter(Boolean),
+      url: base + '/g/schedule/view.csp?event=' + encodeURIComponent(ev.id) + '&bdate=' + date
+    };
+  });
+  return { ok: true, date: date, events: events };
+}
+
+/** エディタから実行して、ガルーンにつながるか確かめる(今日の予定の件数がログに出る) */
+function testGaroon() {
+  var today = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd');
+  var r = garoon_({ date: today });
+  Logger.log(r.ok ? ('今日の予定: ' + r.events.length + '件 ' + r.events.map(function (e) { return e.subject; }).join(' / ')) : r.error);
 }
 
 function parse_(s) {

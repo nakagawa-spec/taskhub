@@ -220,6 +220,67 @@
     .cal-more{font-size:.6rem;}
   }
 
+  /* ---- DAY(1日の時間割) ---- */
+  .day-bar{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+  .day-title{font-family:'Zen Kaku Gothic New',sans-serif; font-size:1.05rem; font-weight:900; display:flex; align-items:center; gap:8px;}
+  .day-title .pill{font-family:'Noto Sans JP',sans-serif;}
+  .day-bar .cal-nav:first-of-type{margin-left:auto;}
+  .garoon-status{flex:1 1 100%; display:flex; align-items:center; gap:6px; font-size:.74rem; color:var(--text-muted);}
+  .garoon-status.err{color:var(--danger);}
+  .garoon-status button{background:none; border:1px solid var(--border); border-radius:7px; padding:2px 8px; font-size:.72rem; color:var(--text-muted); cursor:pointer; font-family:inherit;}
+  .garoon-status button:hover{color:var(--accent); border-color:var(--accent);}
+  .allday{display:flex; gap:6px; flex-wrap:wrap; align-items:center; font-size:.74rem; color:var(--text-muted);}
+  .allday a, .allday span.ad{background:var(--wait-soft); color:var(--wait); border-radius:7px; padding:3px 9px; font-weight:700; text-decoration:none; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .day-grid{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px;}
+  .slot{background:var(--surface-alt); border:1px solid var(--border); border-radius:12px; padding:10px; display:flex; flex-direction:column; gap:8px; min-height:200px; min-width:0;}
+  .slot.now{border-color:var(--warning); background:color-mix(in srgb, var(--warning) 7%, var(--surface));}
+  .slot-head{display:flex; align-items:baseline; gap:8px; padding-left:2px;}
+  .slot-q{font-family:'JetBrains Mono',monospace; font-weight:600; font-size:.72rem; color:var(--accent); background:var(--accent-soft); border-radius:5px; padding:1px 6px;}
+  .slot-time{font-family:'JetBrains Mono',monospace; font-weight:600; font-size:.88rem;}
+  .slot.now .slot-time{color:var(--warning);}
+  .slot-cnt{margin-left:auto; font-size:.7rem; color:var(--text-muted);}
+  .slot-list{display:flex; flex-direction:column; gap:6px; flex:1; min-height:60px; border-radius:9px; padding:2px;}
+  .slot-empty{font-size:.74rem; color:var(--text-muted); border:1px dashed var(--border); border-radius:9px; padding:14px 8px; text-align:center; flex:1; display:flex; align-items:center; justify-content:center;}
+  .slot-list .slot-empty:not(:only-child){display:none;}
+  .drop-on{outline:2px dashed var(--accent); outline-offset:2px; background:color-mix(in srgb, var(--accent-soft) 55%, transparent);}
+  .tray-sec{display:flex; flex-direction:column; gap:6px;}
+  .tray-head{display:flex; align-items:center; gap:6px; font-size:.74rem; font-weight:700; color:var(--text-muted); background:none; border:none; padding:4px 2px; cursor:pointer; font-family:inherit; text-align:left;}
+  .tray-head svg{transition:transform .15s;}
+  .tray-head.open svg{transform:rotate(90deg);}
+  .tray-head.overdue{color:var(--danger);}
+  .tray-head.today{color:var(--warning);}
+  .tray-hint{font-size:.72rem; color:var(--text-muted);}
+
+  .dcard{display:flex; align-items:flex-start; gap:6px; background:var(--surface); border:1px solid var(--border); border-left:4px solid var(--border); border-radius:9px; padding:7px 6px 7px 7px; min-width:0; user-select:none; -webkit-user-select:none; cursor:grab;}
+  .dcard:hover{border-color:color-mix(in srgb, var(--accent) 35%, var(--border));}
+  .dcard.priority-high{background:color-mix(in srgb, var(--warning) 9%, var(--surface)); border-left-color:var(--warning);}
+  .dcard.priority-critical{background:color-mix(in srgb, var(--danger) 8%, var(--surface)); border-left-color:var(--danger);}
+  .dcard.overdue{border-left-color:var(--danger);}
+  .dcard.done{opacity:.55; cursor:default;}
+  .dcard.done .dcard-title{text-decoration:line-through; color:var(--text-muted);}
+  .dcard.drag-src{opacity:.3;}
+  .dcard.garoon{cursor:default; background:color-mix(in srgb, var(--wait) 7%, var(--surface)); border-left-color:var(--wait);}
+  .dcard .check{width:18px; height:18px; margin-top:1px;}
+  .dcard .check:checked::after{font-size:11px;}
+  .dgrip{flex:none; color:var(--text-muted); padding-top:2px; cursor:grab; touch-action:none; display:flex;}
+  .dcard-body{flex:1; min-width:0; display:flex; flex-direction:column; gap:2px;}
+  .dcard-title{font-weight:700; font-size:.84rem; line-height:1.4; word-break:break-word;}
+  .dcard-meta{display:flex; align-items:center; gap:4px 8px; flex-wrap:wrap; font-size:.7rem; color:var(--text-muted);}
+  .dcard-meta .late{color:var(--danger); font-weight:700;}
+  .dcard-meta a{color:var(--accent); text-decoration:none; display:inline-flex; align-items:center; gap:3px;}
+  .dcard-meta a:hover{text-decoration:underline;}
+  .g-time{font-family:'JetBrains Mono',monospace; font-weight:600; font-size:.74rem; color:var(--wait);}
+  .g-menu{font-size:.64rem; font-weight:700; background:var(--wait-soft); color:var(--wait); border-radius:99px; padding:1px 7px;}
+  .dcard-actions{display:flex; gap:0; flex:none; align-items:center;}
+  .dcard-actions .icon-btn{padding:4px;}
+  .slot-menu{flex:1 1 100%; display:flex; gap:4px; flex-wrap:wrap; padding:4px 0 0 24px;}
+  .slot-menu button{font-size:.72rem; font-family:'JetBrains Mono',monospace; font-weight:600; border:1px solid var(--border); background:var(--surface-alt); color:var(--text); border-radius:7px; padding:4px 8px; cursor:pointer;}
+  .slot-menu button:hover{border-color:var(--accent); color:var(--accent);}
+  .slot-menu button.cur{background:var(--accent); border-color:var(--accent); color:var(--accent-contrast);}
+  .slot-menu button.off{font-family:inherit; color:var(--text-muted);}
+  .dghost{position:fixed; z-index:60; pointer-events:none; box-shadow:0 10px 28px rgba(20,18,10,.22); opacity:.95; transform:rotate(1.5deg); margin:0;}
+  body.dragging-day, body.dragging-day *{cursor:grabbing!important;}
+
   .tools{display:flex; align-items:center; gap:8px; flex-wrap:wrap; border-top:1px solid var(--border); padding-top:14px; margin-top:6px;}
   .tools .mode{font-size:.74rem; color:var(--text-muted); margin-right:auto;}
   .tools button{font-size:.74rem; color:var(--text-muted); background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:6px 11px; cursor:pointer; font-family:inherit;}
@@ -289,6 +350,15 @@
     .qd-btn{font-size:.8rem; padding:6px 12px;}
     .tools{justify-content:center;}
     .tools .mode{flex:1 1 100%; text-align:center; margin-right:0;}
+
+    .day-grid{grid-template-columns:minmax(0,1fr); gap:10px;}
+    .slot{min-height:0;}
+    .slot-list{min-height:48px;}
+    .dcard{padding:8px 4px 8px 6px;}
+    .dcard-title{font-size:.92rem;}
+    .dcard .icon-btn{min-width:34px; min-height:34px; padding:6px;}
+    .dgrip{padding:4px 2px 0 0;}
+    .slot-menu button{font-size:.8rem; padding:7px 10px;}
   }
 </style>
 </head>
@@ -320,6 +390,10 @@
       <button type="button" class="view-tab" role="tab" data-view="list">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M4 6h2M4 12h2M4 18h2" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M10 6h10M10 12h10M10 18h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
         リスト
+      </button>
+      <button type="button" class="view-tab" role="tab" data-view="day">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="13" y="3" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="3" y="13" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="13" y="13" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.8"/></svg>
+        DAY
       </button>
       <button type="button" class="view-tab" role="tab" data-view="calendar">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M8 3v4M16 3v4M3 10h18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
@@ -430,7 +504,7 @@
   var editingDue = new Set();
   var dragState = {id:null, container:null};
   var viewMode = 'list';
-  try{ if(localStorage.getItem('taskhub.view') === 'calendar') viewMode = 'calendar'; }catch(e){}
+  try{ var savedView = localStorage.getItem('taskhub.view'); if(savedView === 'calendar' || savedView === 'day') viewMode = savedView; }catch(e){}
   var calMonth = (function(){ var d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); })();
   var calSelected = null;
 
@@ -773,6 +847,7 @@
   // 他の端末での変更を取り込む。入力中・ドラッグ中は画面が書き換わらないよう見送る
   function poll(){
     if(!API || !getPass() || document.hidden || isBusy()) return;
+    if(viewMode === 'day') loadGaroon(dayDate(), false);
     flush().then(function(){
       return api('changes', {since: version});
     }).then(function(res){
@@ -799,6 +874,7 @@
 
   function isBusy(){
     if(dragState.id) return true;
+    if(dayDrag && dayDrag.active) return true;
     if(!document.getElementById('taskPanel').hidden) return true;
     var a = document.activeElement;
     return !!(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.id !== 'searchInput' && document.getElementById('listArea').contains(a));
@@ -940,7 +1016,7 @@
   // ---------------------------------------------------------------- 画面の更新
   // GitHub Pages は10分ほどキャッシュされるので、ボタンで最新の画面を取り直せるようにする。
   // version.json の version が APP_VERSION と違えば、新しい画面が公開されている。
-  var APP_VERSION = '2026.10.04.3';
+  var APP_VERSION = '2026.10.09.1';
   var updateNotified = false;
 
   function checkNewVersion(){
@@ -994,6 +1070,11 @@
       area.innerHTML = renderCalendar(filtered);
       wireRowEvents();
       wireCalendarEvents();
+      return;
+    }
+    if(viewMode === 'day'){
+      area.innerHTML = renderDay(filtered);
+      wireDayEvents();
       return;
     }
 
@@ -1177,6 +1258,418 @@
       openPanel(null);
       document.getElementById('f_due').value = calSelected || todayStr();
     });
+  }
+
+  // ---------------------------------------------------------------- DAY(1日の時間割)
+  // タスクに plan = {date, slot} と planOrder を持たせて、その日の4つの箱に割り当てる。
+  // 日付が変われば割り当ては自然に外れ、未割り当てに戻る。ガルーンの予定は開始時刻の箱に自動で入る(読み取りのみ)。
+  var SLOTS = [
+    {q:'Q1', from:9, to:13},
+    {q:'Q2', from:13, to:16},
+    {q:'Q3', from:16, to:19},
+    {q:'Q4', from:19, to:22}
+  ];
+  var LS_GAROON = 'taskhub.garoon', LS_TRAY = 'taskhub.dayTray';
+  var GAROON_TTL = 5 * 60 * 1000;
+  var daySelected = null;
+  var slotMenuId = null;
+  var dayDrag = null;
+  var dayRenderPending = false;
+  var garoonCache = lsGet(LS_GAROON) || {};
+  var trayOpen = Object.assign({overdue:true, due:true, nodate:false, future:false}, lsGet(LS_TRAY) || {});
+
+  function dayDate(){ return daySelected || todayStr(); }
+  function slotOfHour(h){ return h < 13 ? 0 : h < 16 ? 1 : h < 19 ? 2 : 3; }
+  function isPlannedOn(t, d){ return !!(t.plan && t.plan.date === d && typeof t.plan.slot === 'number'); }
+  function isRecurring(t){ return !!(t.recurrence && t.recurrence !== 'none'); }
+  function doneOnDay(t, d){
+    if(isRecurring(t)) return !!t.lastDoneAt && toDateStr(new Date(t.lastDoneAt)) === d;
+    return !!t.completed;
+  }
+  function hhmm(iso){ var d = new Date(iso); return d.getHours() + ':' + pad(d.getMinutes()); }
+  function shiftDay(ds, n){ var d = parseLocalDate(ds); d.setDate(d.getDate() + n); return toDateStr(d); }
+
+  function loadGaroon(date, force){
+    if(!API || !getPass()) return;
+    var c = garoonCache[date];
+    if(c && c.loading) return;
+    if(!force && c && c.fetchedAt && Date.now() - c.fetchedAt < GAROON_TTL) return;
+    garoonCache[date] = Object.assign({}, c || {}, {loading: true});
+    api('garoon', {date: date}).then(function(res){
+      garoonCache[date] = {events: res.events || [], fetchedAt: Date.now()};
+      saveGaroonCache();
+    }).catch(function(err){
+      if(handleAuthError(err)){ delete garoonCache[date]; return; }
+      garoonCache[date] = {events: (c && c.events) || [], fetchedAt: Date.now(), error: err.message, code: err.code || ''};
+    }).then(function(){
+      if(viewMode === 'day' && dayDate() === date) dayRender();
+    });
+  }
+
+  function saveGaroonCache(){
+    var keep = {};
+    Object.keys(garoonCache).sort().slice(-7).forEach(function(k){
+      var c = garoonCache[k];
+      if(c && c.events && !c.error) keep[k] = {events: c.events, fetchedAt: c.fetchedAt};
+    });
+    lsSet(LS_GAROON, keep);
+  }
+
+  // ドラッグ中や入力中は画面を作り直さず、終わってからまとめて描く
+  function dayRender(){
+    if(isBusy()){ dayRenderPending = true; return; }
+    dayRenderPending = false;
+    render();
+  }
+
+  function renderDay(filtered){
+    var D = dayDate();
+    var today = todayStr();
+    loadGaroon(D, false);
+
+    // 箱ごとのタスク
+    var bySlot = [[],[],[],[]];
+    tasks.forEach(function(t){
+      if(!isPlannedOn(t, D)) return;
+      bySlot[Math.max(0, Math.min(3, t.plan.slot))].push(t);
+    });
+    bySlot.forEach(function(arr){
+      arr.sort(function(a,b){
+        var da = doneOnDay(a, D), db = doneOnDay(b, D);
+        if(da !== db) return da ? 1 : -1;
+        return (a.planOrder||0) - (b.planOrder||0);
+      });
+    });
+
+    // ガルーンの予定
+    var g = garoonCache[D] || {};
+    var evSlots = [[],[],[],[]];
+    var allDay = [];
+    (g.events || []).forEach(function(ev){
+      if(ev.allDay || !ev.start){ allDay.push(ev); return; }
+      var st = new Date(ev.start);
+      var h = toDateStr(st) < D ? 0 : st.getHours();
+      evSlots[slotOfHour(h)].push(ev);
+    });
+
+    var now = new Date();
+    var nowSlot = (D === today && now.getHours() >= 9 && now.getHours() < 22) ? slotOfHour(now.getHours()) : -1;
+
+    var slotsHtml = SLOTS.map(function(s, i){
+      var cards = evSlots[i].map(renderGaroonCard).join('') + bySlot[i].map(function(t){ return renderDayCard(t, D); }).join('');
+      var cnt = evSlots[i].length + bySlot[i].length;
+      return '<div class="slot'+(i === nowSlot ? ' now' : '')+'">' +
+        '<div class="slot-head"><span class="slot-q">'+s.q+'</span><span class="slot-time">'+s.from+':00–'+s.to+':00</span>' +
+        (i === nowSlot ? '<span class="pill high">いま</span>' : '') +
+        '<span class="slot-cnt">'+(cnt ? cnt+'件' : '')+'</span></div>' +
+        '<div class="slot-list" data-zone="'+i+'">'+cards+'<div class="slot-empty">ここにタスクをドラッグ</div></div>' +
+      '</div>';
+    }).join('');
+
+    var alldayHtml = allDay.length
+      ? '<div class="allday">終日 '+allDay.map(function(ev){
+          return '<a href="'+escapeHtml(ev.url)+'" target="_blank" rel="noopener" title="'+escapeHtml(ev.subject)+'">'+escapeHtml(ev.subject)+'</a>';
+        }).join('')+'</div>'
+      : '';
+
+    var board =
+      '<div class="side-card">' +
+        '<div class="day-bar">' +
+          '<span class="day-title">'+fmtDue(D)+(D === today ? '<span class="pill high">今日</span>' : '')+'</span>' +
+          '<button type="button" class="cal-nav" data-daynav="-1" aria-label="前の日">‹</button>' +
+          '<button type="button" class="cal-nav" data-daynav="0">今日</button>' +
+          '<button type="button" class="cal-nav" data-daynav="1" aria-label="次の日">›</button>' +
+          garoonStatus(g) +
+        '</div>' +
+        alldayHtml +
+        '<div class="day-grid">'+slotsHtml+'</div>' +
+      '</div>';
+
+    // 未割り当て(この日の箱に入っていない未完了タスク)
+    var cand = filtered.filter(function(t){ return !t.completed && !isPlannedOn(t, D); });
+    var groups = {overdue:[], due:[], nodate:[], future:[]};
+    cand.forEach(function(t){
+      if(!t.dueDate) groups.nodate.push(t);
+      else if(t.dueDate < today) groups.overdue.push(t);
+      else if(t.dueDate <= D) groups.due.push(t);
+      else groups.future.push(t);
+    });
+    function byDue(a,b){ var c = (a.dueDate||'').localeCompare(b.dueDate||''); return c !== 0 ? c : (a.order||0) - (b.order||0); }
+    Object.keys(groups).forEach(function(k){ groups[k].sort(byDue); });
+    var labels = {
+      overdue: {text:'期限切れ', cls:'overdue'},
+      due: {text: D === today ? '今日のタスク' : fmtDue(D)+'までのタスク', cls:'today'},
+      nodate: {text:'期限未設定', cls:''},
+      future: {text:'今後の予定', cls:''}
+    };
+    var trayHtml = ['overdue','due','nodate','future'].map(function(k){
+      var list = groups[k];
+      if(!list.length && (k === 'overdue' || k === 'future')) return '';
+      var open = !!trayOpen[k];
+      return '<div class="tray-sec">' +
+        '<button type="button" class="tray-head '+labels[k].cls+(open?' open':'')+'" data-tray="'+k+'">'+iconChevron()+' '+labels[k].text+'（'+list.length+'）</button>' +
+        (open ? (list.length ? list.map(function(t){ return renderDayCard(t, D); }).join('') : '<div class="side-empty">ありません。</div>') : '') +
+      '</div>';
+    }).join('');
+    var tray =
+      '<div class="side-card">' +
+        '<h3>'+iconTray()+' 未割り当てのタスク（'+cand.length+'）</h3>' +
+        '<div class="tray-hint">カードを時間の箱へドラッグするか、時計のボタンで時間帯を選びます（スマホは左端の点々をつかんで動かします）。箱から戻すときはここへドラッグします。</div>' +
+        '<div class="side-list" data-zone="tray">'+trayHtml+'</div>' +
+      '</div>';
+
+    return '<div class="layout day-view"><div class="col-main">'+board+'</div><div class="side-col">'+tray+'</div></div>';
+  }
+
+  function garoonStatus(g){
+    var refresh = '<button type="button" data-garoon="refresh">再読み込み</button>';
+    if(!API) return '<div class="garoon-status">ガルーンの予定は、スプレッドシートにつないでいるときだけ表示されます。</div>';
+    if(g.error){
+      var msg = /不明な操作/.test(g.error) ? 'GAS がまだ古い版です（Code.gs を貼り替えて新バージョンでデプロイしてください）' : g.error;
+      return '<div class="garoon-status err">ガルーン: '+escapeHtml(msg)+' '+refresh+'</div>';
+    }
+    if(!g.fetchedAt) return '<div class="garoon-status">ガルーンの予定を読み込み中…</div>';
+    var t = new Date(g.fetchedAt);
+    return '<div class="garoon-status">ガルーン '+(g.loading ? '更新中…' : t.getHours()+':'+pad(t.getMinutes())+' 取得（'+(g.events||[]).length+'件）')+' '+refresh+'</div>';
+  }
+
+  function renderGaroonCard(ev){
+    var time = ev.startOnly ? hhmm(ev.start)+'〜' : hhmm(ev.start)+'–'+(ev.end ? hhmm(ev.end) : '');
+    var meta = [];
+    if(ev.facilities && ev.facilities.length) meta.push(escapeHtml(ev.facilities.join('・')));
+    meta.push('<a href="'+escapeHtml(ev.url)+'" target="_blank" rel="noopener">'+iconLink()+' ガルーンで開く</a>');
+    return '<div class="dcard garoon">' +
+      '<div class="dcard-body">' +
+        '<div class="dcard-meta"><span class="g-time">'+time+'</span>'+(ev.menu ? '<span class="g-menu">'+escapeHtml(ev.menu)+'</span>' : '')+'</div>' +
+        '<div class="dcard-title">'+escapeHtml(ev.subject)+'</div>' +
+        '<div class="dcard-meta">'+meta.join('')+'</div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function renderDayCard(t, D){
+    var today = todayStr();
+    var done = isPlannedOn(t, D) && doneOnDay(t, D);
+    var cls = 'dcard';
+    if(t.priority === 'critical') cls += ' priority-critical';
+    else if(t.priority === 'high') cls += ' priority-high';
+    if(done) cls += ' done';
+    else if(t.dueDate && t.dueDate < today) cls += ' overdue';
+
+    var meta = [];
+    if(t.dueDate && (t.dueDate !== D || done)){
+      meta.push('<span class="'+(!done && t.dueDate < today ? 'late' : '')+'">期限 '+fmtDue(t.dueDate)+'</span>');
+    }
+    if(isRecurring(t)) meta.push('<span>'+iconRepeat()+' '+recurrenceLabel(t)+'</span>');
+    if(t.waiting) meta.push('<span class="pill waiting">'+iconHourglass()+' 先方待ち</span>');
+    if(t.url) meta.push('<a href="'+escapeHtml(t.url)+'" target="_blank" rel="noopener">'+iconLink()+' '+escapeHtml(hostLabel(t.url))+'</a>');
+
+    // 定例タスクは完了すると次回へ進むので、この日の完了表示からは戻せない
+    var lockCheck = done && isRecurring(t);
+    var planned = isPlannedOn(t, D);
+    var menu = '';
+    if(slotMenuId === t.id){
+      menu = '<div class="slot-menu">' + SLOTS.map(function(s, i){
+        return '<button type="button" data-setslot="'+i+'" class="'+(planned && t.plan.slot === i ? 'cur' : '')+'">'+s.from+'–'+s.to+'</button>';
+      }).join('') + (planned ? '<button type="button" class="off" data-setslot="off">箱から外す</button>' : '') + '</div>';
+    }
+
+    return '<div class="'+cls+'" data-id="'+t.id+'">' +
+      (done ? '' : '<span class="dgrip" title="ドラッグで移動">'+iconGrip()+'</span>') +
+      '<input type="checkbox" class="check" data-dact="check" '+(done?'checked':'')+(lockCheck?' disabled title="完了済み（次回の期限へ進みました）"':'')+'>' +
+      '<div class="dcard-body">' +
+        '<div class="dcard-title">'+escapeHtml(t.title)+'</div>' +
+        (meta.length ? '<div class="dcard-meta">'+meta.join('')+'</div>' : '') +
+      '</div>' +
+      '<div class="dcard-actions">' +
+        (done ? '' : '<button type="button" class="icon-btn" data-dact="slotmenu" title="時間帯を選ぶ">'+iconClock()+'</button>') +
+        '<button type="button" class="icon-btn" data-dact="edit" title="編集">'+iconEdit()+'</button>' +
+        '<button type="button" class="icon-btn danger-hover" data-dact="delete" title="削除">'+iconTrash()+'</button>' +
+      '</div>' +
+      menu +
+    '</div>';
+  }
+
+  function iconClock(){ return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.8"/><path d="M12 7.5V12l3 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'; }
+
+  function findTask(id){ return tasks.find(function(t){ return t.id === id; }); }
+
+  function nextPlanOrder(D, slot, exceptId){
+    var max = 0;
+    tasks.forEach(function(t){
+      if(t.id !== exceptId && isPlannedOn(t, D) && t.plan.slot === slot) max = Math.max(max, t.planOrder || 0);
+    });
+    return max + 10;
+  }
+
+  function setSlot(id, slot){
+    var D = dayDate();
+    slotMenuId = null;
+    if(slot === null){ writeTask(id, {plan: null}, false); return; }
+    var t = findTask(id);
+    if(t && isPlannedOn(t, D) && t.plan.slot === slot){ render(); return; }
+    writeTask(id, {plan: {date: D, slot: slot}, planOrder: nextPlanOrder(D, slot, id)}, false);
+  }
+
+  function wireDayEvents(){
+    var root = document.querySelector('#listArea .day-view');
+    if(!root) return;
+    root.addEventListener('click', function(e){
+      if(dayDrag && dayDrag.suppressClick){ dayDrag = null; e.preventDefault(); e.stopPropagation(); return; }
+      var nav = e.target.closest('[data-daynav]');
+      if(nav){
+        var n = parseInt(nav.dataset.daynav, 10);
+        daySelected = n === 0 ? null : shiftDay(dayDate(), n);
+        if(daySelected === todayStr()) daySelected = null;
+        slotMenuId = null;
+        render();
+        return;
+      }
+      if(e.target.closest('[data-garoon="refresh"]')){ loadGaroon(dayDate(), true); render(); return; }
+      var th = e.target.closest('[data-tray]');
+      if(th){
+        trayOpen[th.dataset.tray] = !trayOpen[th.dataset.tray];
+        lsSet(LS_TRAY, trayOpen);
+        render();
+        return;
+      }
+      var card = e.target.closest('.dcard[data-id]');
+      if(!card) return;
+      var id = card.dataset.id;
+      var task = findTask(id);
+      if(!task) return;
+      var ss = e.target.closest('[data-setslot]');
+      if(ss){ setSlot(id, ss.dataset.setslot === 'off' ? null : parseInt(ss.dataset.setslot, 10)); return; }
+      var btn = e.target.closest('[data-dact]');
+      if(!btn) return;
+      var act = btn.dataset.dact;
+      if(act === 'slotmenu'){ slotMenuId = slotMenuId === id ? null : id; render(); }
+      else if(act === 'edit'){ openPanel(task); }
+      else if(act === 'delete'){
+        if(pendingDelete === id){ pendingDelete = null; deleteTask(id); return; }
+        pendingDelete = id;
+        btn.title = 'もう一度クリックで削除';
+        btn.style.color = 'var(--danger)';
+        btn.style.background = 'var(--danger-soft)';
+        setTimeout(function(){ if(pendingDelete === id){ pendingDelete = null; btn.title = '削除'; btn.style.color = ''; btn.style.background = ''; } }, 2500);
+      }
+    });
+    root.addEventListener('change', function(e){
+      var cb = e.target.closest('[data-dact="check"]');
+      if(!cb) return;
+      var task = findTask(cb.closest('.dcard').dataset.id);
+      if(task) toggleComplete(task);
+    });
+    root.addEventListener('pointerdown', onDayPointerDown);
+  }
+
+  // ---- ドラッグ(マウス・タッチ共通。タッチは持ち手からだけ動かせる。ふつうに触るとスクロール)
+  function onDayPointerDown(e){
+    if(e.button !== 0) return;
+    var card = e.target.closest('.dcard[data-id]');
+    if(!card || card.classList.contains('done')) return;
+    if(e.target.closest('button, input, a, .slot-menu')) return;
+    if(e.pointerType !== 'mouse' && !e.target.closest('.dgrip')) return;
+    dayDrag = {id: card.dataset.id, el: card, x0: e.clientX, y0: e.clientY, active: false, zone: null, ghost: null, pointerId: e.pointerId};
+    window.addEventListener('pointermove', onDayPointerMove, {passive: false});
+    window.addEventListener('pointerup', onDayPointerUp);
+    window.addEventListener('pointercancel', onDayPointerCancel);
+  }
+
+  function startDayDrag(e){
+    var el = dayDrag.el;
+    var r = el.getBoundingClientRect();
+    var ghost = el.cloneNode(true);
+    ghost.classList.add('dghost');
+    ghost.style.width = r.width + 'px';
+    document.body.appendChild(ghost);
+    dayDrag.ghost = ghost;
+    dayDrag.dx = e.clientX - r.left;
+    dayDrag.dy = e.clientY - r.top;
+    dayDrag.active = true;
+    el.classList.add('drag-src');
+    document.body.classList.add('dragging-day');
+    slotMenuId = null;
+  }
+
+  function onDayPointerMove(e){
+    if(!dayDrag) return;
+    if(!dayDrag.active){
+      if(Math.abs(e.clientX - dayDrag.x0) + Math.abs(e.clientY - dayDrag.y0) < 6) return;
+      startDayDrag(e);
+    }
+    e.preventDefault();
+    dayDrag.ghost.style.left = (e.clientX - dayDrag.dx) + 'px';
+    dayDrag.ghost.style.top = (e.clientY - dayDrag.dy) + 'px';
+    if(e.clientY < 70) window.scrollBy(0, -14);
+    else if(e.clientY > window.innerHeight - 70) window.scrollBy(0, 14);
+
+    var under = document.elementFromPoint(e.clientX, e.clientY);
+    var zone = under && under.closest('#listArea [data-zone]');
+    if(zone !== dayDrag.zone){
+      if(dayDrag.zone) dayDrag.zone.classList.remove('drop-on');
+      if(zone) zone.classList.add('drop-on');
+      dayDrag.zone = zone;
+    }
+    // 箱の上では、その位置にカードを差し込んで見せる
+    if(zone && zone.dataset.zone !== 'tray'){
+      var after = null, best = -Infinity;
+      zone.querySelectorAll('.dcard[data-id]:not(.drag-src)').forEach(function(c){
+        var b = c.getBoundingClientRect();
+        var off = e.clientY - b.top - b.height / 2;
+        if(off < 0 && off > best){ best = off; after = c; }
+      });
+      if(after) zone.insertBefore(dayDrag.el, after);
+      else zone.insertBefore(dayDrag.el, zone.querySelector('.slot-empty'));
+    }
+  }
+
+  function endDayDrag(){
+    window.removeEventListener('pointermove', onDayPointerMove);
+    window.removeEventListener('pointerup', onDayPointerUp);
+    window.removeEventListener('pointercancel', onDayPointerCancel);
+    document.body.classList.remove('dragging-day');
+    if(dayDrag && dayDrag.ghost) dayDrag.ghost.remove();
+    if(dayDrag && dayDrag.zone) dayDrag.zone.classList.remove('drop-on');
+  }
+
+  function onDayPointerCancel(){
+    var was = dayDrag && dayDrag.active;
+    endDayDrag();
+    dayDrag = null;
+    if(was) render();
+  }
+
+  function onDayPointerUp(){
+    if(!dayDrag) return;
+    endDayDrag();
+    if(!dayDrag.active){ dayDrag = null; return; }
+    var d = dayDrag;
+    // 直後の click(ボタンの誤反応)を1回だけ無視する
+    dayDrag = {suppressClick: true};
+    setTimeout(function(){ if(dayDrag && dayDrag.suppressClick) dayDrag = null; }, 0);
+    var D = dayDate();
+    var zone = d.zone;
+    if(zone && zone.dataset.zone === 'tray'){
+      var t = findTask(d.id);
+      if(t && t.plan){ writeTask(d.id, {plan: null}, false); }
+      else render();
+    } else if(zone){
+      var slot = parseInt(zone.dataset.zone, 10);
+      var ids = Array.prototype.map.call(zone.querySelectorAll('.dcard[data-id]'), function(c){ return c.dataset.id; });
+      ids.forEach(function(id, idx){
+        var t = findTask(id);
+        if(!t || (isPlannedOn(t, D) && doneOnDay(t, D))) return;
+        var order = (idx + 1) * 10;
+        if(isPlannedOn(t, D) && t.plan.slot === slot && t.planOrder === order) return;
+        Object.assign(t, {plan: {date: D, slot: slot}, planOrder: order, isNew: false});
+        queueSave(t.id, t);
+      });
+      render();
+    } else {
+      render();
+    }
+    if(dayRenderPending) dayRender();
   }
 
   function dueDisplay(t){
