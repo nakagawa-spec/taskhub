@@ -1006,7 +1006,7 @@
   // ---------------------------------------------------------------- 画面の更新
   // GitHub Pages は10分ほどキャッシュされるので、ボタンで最新の画面を取り直せるようにする。
   // version.json の version が APP_VERSION と違えば、新しい画面が公開されている。
-  var APP_VERSION = '2026.10.09.2';
+  var APP_VERSION = '2026.10.09.3';
   var updateNotified = false;
 
   function checkNewVersion(){
@@ -1335,7 +1335,7 @@
       nodate: {text:'期限未設定', cls:''},
       future: {text:'今後の予定', cls:''}
     };
-    var trayHtml = ['overdue','due','nodate','future'].map(function(k){
+    var trayHtml = ['due','overdue','nodate','future'].map(function(k){
       var list = groups[k];
       if(!list.length && (k === 'overdue' || k === 'future')) return '';
       var open = !!trayOpen[k];
