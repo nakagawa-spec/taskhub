@@ -225,12 +225,6 @@
   .day-title{font-family:'Zen Kaku Gothic New',sans-serif; font-size:1.05rem; font-weight:900; display:flex; align-items:center; gap:8px;}
   .day-title .pill{font-family:'Noto Sans JP',sans-serif;}
   .day-bar .cal-nav:first-of-type{margin-left:auto;}
-  .garoon-status{flex:1 1 100%; display:flex; align-items:center; gap:6px; font-size:.74rem; color:var(--text-muted);}
-  .garoon-status.err{color:var(--danger);}
-  .garoon-status button{background:none; border:1px solid var(--border); border-radius:7px; padding:2px 8px; font-size:.72rem; color:var(--text-muted); cursor:pointer; font-family:inherit;}
-  .garoon-status button:hover{color:var(--accent); border-color:var(--accent);}
-  .allday{display:flex; gap:6px; flex-wrap:wrap; align-items:center; font-size:.74rem; color:var(--text-muted);}
-  .allday a, .allday span.ad{background:var(--wait-soft); color:var(--wait); border-radius:7px; padding:3px 9px; font-weight:700; text-decoration:none; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .day-grid{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px;}
   .slot{background:var(--surface-alt); border:1px solid var(--border); border-radius:12px; padding:10px; display:flex; flex-direction:column; gap:8px; min-height:200px; min-width:0;}
   .slot.now{border-color:var(--warning); background:color-mix(in srgb, var(--warning) 7%, var(--surface));}
@@ -259,7 +253,6 @@
   .dcard.done{opacity:.55; cursor:default;}
   .dcard.done .dcard-title{text-decoration:line-through; color:var(--text-muted);}
   .dcard.drag-src{opacity:.3;}
-  .dcard.garoon{cursor:default; background:color-mix(in srgb, var(--wait) 7%, var(--surface)); border-left-color:var(--wait);}
   .dcard .check{width:18px; height:18px; margin-top:1px;}
   .dcard .check:checked::after{font-size:11px;}
   .dgrip{flex:none; color:var(--text-muted); padding-top:2px; cursor:grab; touch-action:none; display:flex;}
@@ -269,8 +262,6 @@
   .dcard-meta .late{color:var(--danger); font-weight:700;}
   .dcard-meta a{color:var(--accent); text-decoration:none; display:inline-flex; align-items:center; gap:3px;}
   .dcard-meta a:hover{text-decoration:underline;}
-  .g-time{font-family:'JetBrains Mono',monospace; font-weight:600; font-size:.74rem; color:var(--wait);}
-  .g-menu{font-size:.64rem; font-weight:700; background:var(--wait-soft); color:var(--wait); border-radius:99px; padding:1px 7px;}
   .dcard-actions{display:flex; gap:0; flex:none; align-items:center;}
   .dcard-actions .icon-btn{padding:4px;}
   .slot-menu{flex:1 1 100%; display:flex; gap:4px; flex-wrap:wrap; padding:4px 0 0 24px;}
@@ -847,7 +838,6 @@
   // 他の端末での変更を取り込む。入力中・ドラッグ中は画面が書き換わらないよう見送る
   function poll(){
     if(!API || !getPass() || document.hidden || isBusy()) return;
-    if(viewMode === 'day') loadGaroon(dayDate(), false);
     flush().then(function(){
       return api('changes', {since: version});
     }).then(function(res){
@@ -1016,7 +1006,7 @@
   // ---------------------------------------------------------------- 画面の更新
   // GitHub Pages は10分ほどキャッシュされるので、ボタンで最新の画面を取り直せるようにする。
   // version.json の version が APP_VERSION と違えば、新しい画面が公開されている。
-  var APP_VERSION = '2026.10.09.1';
+  var APP_VERSION = '2026.10.09.2';
   var updateNotified = false;
 
   function checkNewVersion(){
@@ -1262,20 +1252,17 @@
 
   // ---------------------------------------------------------------- DAY(1日の時間割)
   // タスクに plan = {date, slot} と planOrder を持たせて、その日の4つの箱に割り当てる。
-  // 日付が変われば割り当ては自然に外れ、未割り当てに戻る。ガルーンの予定は開始時刻の箱に自動で入る(読み取りのみ)。
+  // 日付が変われば割り当ては自然に外れ、未割り当てに戻る。
   var SLOTS = [
     {q:'Q1', from:9, to:13},
     {q:'Q2', from:13, to:16},
     {q:'Q3', from:16, to:19},
     {q:'Q4', from:19, to:22}
   ];
-  var LS_GAROON = 'taskhub.garoon', LS_TRAY = 'taskhub.dayTray';
-  var GAROON_TTL = 5 * 60 * 1000;
+  var LS_TRAY = 'taskhub.dayTray';
   var daySelected = null;
   var slotMenuId = null;
   var dayDrag = null;
-  var dayRenderPending = false;
-  var garoonCache = lsGet(LS_GAROON) || {};
   var trayOpen = Object.assign({overdue:true, due:true, nodate:false, future:false}, lsGet(LS_TRAY) || {});
 
   function dayDate(){ return daySelected || todayStr(); }
@@ -1286,46 +1273,11 @@
     if(isRecurring(t)) return !!t.lastDoneAt && toDateStr(new Date(t.lastDoneAt)) === d;
     return !!t.completed;
   }
-  function hhmm(iso){ var d = new Date(iso); return d.getHours() + ':' + pad(d.getMinutes()); }
   function shiftDay(ds, n){ var d = parseLocalDate(ds); d.setDate(d.getDate() + n); return toDateStr(d); }
-
-  function loadGaroon(date, force){
-    if(!API || !getPass()) return;
-    var c = garoonCache[date];
-    if(c && c.loading) return;
-    if(!force && c && c.fetchedAt && Date.now() - c.fetchedAt < GAROON_TTL) return;
-    garoonCache[date] = Object.assign({}, c || {}, {loading: true});
-    api('garoon', {date: date}).then(function(res){
-      garoonCache[date] = {events: res.events || [], fetchedAt: Date.now()};
-      saveGaroonCache();
-    }).catch(function(err){
-      if(handleAuthError(err)){ delete garoonCache[date]; return; }
-      garoonCache[date] = {events: (c && c.events) || [], fetchedAt: Date.now(), error: err.message, code: err.code || ''};
-    }).then(function(){
-      if(viewMode === 'day' && dayDate() === date) dayRender();
-    });
-  }
-
-  function saveGaroonCache(){
-    var keep = {};
-    Object.keys(garoonCache).sort().slice(-7).forEach(function(k){
-      var c = garoonCache[k];
-      if(c && c.events && !c.error) keep[k] = {events: c.events, fetchedAt: c.fetchedAt};
-    });
-    lsSet(LS_GAROON, keep);
-  }
-
-  // ドラッグ中や入力中は画面を作り直さず、終わってからまとめて描く
-  function dayRender(){
-    if(isBusy()){ dayRenderPending = true; return; }
-    dayRenderPending = false;
-    render();
-  }
 
   function renderDay(filtered){
     var D = dayDate();
     var today = todayStr();
-    loadGaroon(D, false);
 
     // 箱ごとのタスク
     var bySlot = [[],[],[],[]];
@@ -1341,23 +1293,12 @@
       });
     });
 
-    // ガルーンの予定
-    var g = garoonCache[D] || {};
-    var evSlots = [[],[],[],[]];
-    var allDay = [];
-    (g.events || []).forEach(function(ev){
-      if(ev.allDay || !ev.start){ allDay.push(ev); return; }
-      var st = new Date(ev.start);
-      var h = toDateStr(st) < D ? 0 : st.getHours();
-      evSlots[slotOfHour(h)].push(ev);
-    });
-
     var now = new Date();
     var nowSlot = (D === today && now.getHours() >= 9 && now.getHours() < 22) ? slotOfHour(now.getHours()) : -1;
 
     var slotsHtml = SLOTS.map(function(s, i){
-      var cards = evSlots[i].map(renderGaroonCard).join('') + bySlot[i].map(function(t){ return renderDayCard(t, D); }).join('');
-      var cnt = evSlots[i].length + bySlot[i].length;
+      var cards = bySlot[i].map(function(t){ return renderDayCard(t, D); }).join('');
+      var cnt = bySlot[i].length;
       return '<div class="slot'+(i === nowSlot ? ' now' : '')+'">' +
         '<div class="slot-head"><span class="slot-q">'+s.q+'</span><span class="slot-time">'+s.from+':00–'+s.to+':00</span>' +
         (i === nowSlot ? '<span class="pill high">いま</span>' : '') +
@@ -1366,12 +1307,6 @@
       '</div>';
     }).join('');
 
-    var alldayHtml = allDay.length
-      ? '<div class="allday">終日 '+allDay.map(function(ev){
-          return '<a href="'+escapeHtml(ev.url)+'" target="_blank" rel="noopener" title="'+escapeHtml(ev.subject)+'">'+escapeHtml(ev.subject)+'</a>';
-        }).join('')+'</div>'
-      : '';
-
     var board =
       '<div class="side-card">' +
         '<div class="day-bar">' +
@@ -1379,9 +1314,7 @@
           '<button type="button" class="cal-nav" data-daynav="-1" aria-label="前の日">‹</button>' +
           '<button type="button" class="cal-nav" data-daynav="0">今日</button>' +
           '<button type="button" class="cal-nav" data-daynav="1" aria-label="次の日">›</button>' +
-          garoonStatus(g) +
         '</div>' +
-        alldayHtml +
         '<div class="day-grid">'+slotsHtml+'</div>' +
       '</div>';
 
@@ -1419,32 +1352,6 @@
       '</div>';
 
     return '<div class="layout day-view"><div class="col-main">'+board+'</div><div class="side-col">'+tray+'</div></div>';
-  }
-
-  function garoonStatus(g){
-    var refresh = '<button type="button" data-garoon="refresh">再読み込み</button>';
-    if(!API) return '<div class="garoon-status">ガルーンの予定は、スプレッドシートにつないでいるときだけ表示されます。</div>';
-    if(g.error){
-      var msg = /不明な操作/.test(g.error) ? 'GAS がまだ古い版です（Code.gs を貼り替えて新バージョンでデプロイしてください）' : g.error;
-      return '<div class="garoon-status err">ガルーン: '+escapeHtml(msg)+' '+refresh+'</div>';
-    }
-    if(!g.fetchedAt) return '<div class="garoon-status">ガルーンの予定を読み込み中…</div>';
-    var t = new Date(g.fetchedAt);
-    return '<div class="garoon-status">ガルーン '+(g.loading ? '更新中…' : t.getHours()+':'+pad(t.getMinutes())+' 取得（'+(g.events||[]).length+'件）')+' '+refresh+'</div>';
-  }
-
-  function renderGaroonCard(ev){
-    var time = ev.startOnly ? hhmm(ev.start)+'〜' : hhmm(ev.start)+'–'+(ev.end ? hhmm(ev.end) : '');
-    var meta = [];
-    if(ev.facilities && ev.facilities.length) meta.push(escapeHtml(ev.facilities.join('・')));
-    meta.push('<a href="'+escapeHtml(ev.url)+'" target="_blank" rel="noopener">'+iconLink()+' ガルーンで開く</a>');
-    return '<div class="dcard garoon">' +
-      '<div class="dcard-body">' +
-        '<div class="dcard-meta"><span class="g-time">'+time+'</span>'+(ev.menu ? '<span class="g-menu">'+escapeHtml(ev.menu)+'</span>' : '')+'</div>' +
-        '<div class="dcard-title">'+escapeHtml(ev.subject)+'</div>' +
-        '<div class="dcard-meta">'+meta.join('')+'</div>' +
-      '</div>' +
-    '</div>';
   }
 
   function renderDayCard(t, D){
@@ -1525,7 +1432,6 @@
         render();
         return;
       }
-      if(e.target.closest('[data-garoon="refresh"]')){ loadGaroon(dayDate(), true); render(); return; }
       var th = e.target.closest('[data-tray]');
       if(th){
         trayOpen[th.dataset.tray] = !trayOpen[th.dataset.tray];
@@ -1669,7 +1575,6 @@
     } else {
       render();
     }
-    if(dayRenderPending) dayRender();
   }
 
   function dueDisplay(t){
