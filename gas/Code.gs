@@ -158,9 +158,16 @@ function garoon_(req) {
 
   var res = UrlFetchApp.fetch(base + '/g/api/v1/schedule/events?' + query, { method: 'get', headers: headers, muteHttpExceptions: true });
   var status = res.getResponseCode();
-  var body = parse_(res.getContentText()) || {};
+  var text = res.getContentText();
+  var body = parse_(text) || {};
   if (status === 401) return { ok: false, error: 'ガルーンにログインできません(ログイン名・パスワードを確認してください)', code: 'GAROON_AUTH' };
-  if (status !== 200) return { ok: false, error: 'ガルーンから予定を取得できませんでした(' + status + (body.message ? ' ' + body.message : '') + ')' };
+  if (status !== 200) {
+    // ガルーンのエラーは {error:{message, cause}}。JSONでなければ本文の先頭を見せる
+    var e = body.error || body;
+    var detail = [e.message, e.cause].filter(Boolean).join(' ') ||
+      String(text || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 150);
+    return { ok: false, error: 'ガルーンから予定を取得できませんでした(' + status + (detail ? ' ' + detail : '') + ')' };
+  }
 
   var events = (body.events || []).map(function (ev) {
     return {
