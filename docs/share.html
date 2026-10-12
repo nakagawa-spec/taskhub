@@ -141,6 +141,8 @@
       render();
     }).catch(function(err){
       if(err.code === 'SHARE') return fatal('プロジェクトが見つかりません', 'このプロジェクトは削除されたか、URLが正しくありません。共有した人に確認してください。');
+      // 古いGASは共有用の処理を知らず、合言葉の確認で断ってくる
+      if(err.code === 'PASS' || err.code === 'NO_PASSCODE' || err.code === 'LOCKED') return fatal('まだ準備中です', 'サーバー（GAS）側の更新が済んでいないため表示できません。共有した人に「GASを新しいバージョンでデプロイしてください」と伝えてください。');
       if(!project) return fatal('読み込めませんでした', '通信できませんでした。時間をおいて開き直してください。（'+err.message+'）');
       setBanner('最新の状態を取得できませんでした。前回の内容を表示しています。');
     });

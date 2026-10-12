@@ -121,11 +121,24 @@ function batch_(req) {
     for (var i = 1; i < values.length; i++) rowOf[String(values[i][0])] = i;
     var t = nextVersion_();
     var appends = [];
+    var removedProjects = {};
     Object.keys(last).forEach(function (id) {
+      if (last[id] === null && id in rowOf && values[rowOf[id]][3] !== true) {
+        var old = parse_(values[rowOf[id]][1]);
+        if (old && old.kind === 'project') removedProjects[id] = true;
+      }
       var row = [id, last[id] || '', t, last[id] === null];
       if (id in rowOf) values[rowOf[id]] = row;
       else appends.push(row);
     });
+    // プロジェクトを消したら、そのタスクも全部消す(画面にまだ届いていないタスクも残さないため)
+    if (Object.keys(removedProjects).length) {
+      for (var j = 1; j < values.length; j++) {
+        if (values[j][3] === true) continue;
+        var v = parse_(values[j][1]);
+        if (v && v.projectId && removedProjects[v.projectId]) values[j] = [values[j][0], '', t, true];
+      }
+    }
     if (values.length > 1) sh.getRange(2, 1, values.length - 1, COLS.length).setValues(values.slice(1));
     if (appends.length) sh.getRange(values.length + 1, 1, appends.length, COLS.length).setValues(appends);
     return { ok: true, version: t };

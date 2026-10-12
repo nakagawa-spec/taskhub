@@ -52,3 +52,15 @@ button.g-title:hover{color:var(--accent); text-decoration:underline;}
 
 .g-legend{display:flex; gap:12px; flex-wrap:wrap; font-size:.7rem; color:var(--text-muted);}
 .g-legend i{display:inline-block; width:14px; height:8px; border-radius:3px; margin-right:4px; vertical-align:middle;}
+
+/* 一番下の入力行 */
+.g-addrow{background:color-mix(in srgb, var(--accent-soft) 25%, transparent);}
+.g-addrow .g-lab{background:color-mix(in srgb, var(--accent-soft) 25%, var(--surface)); gap:6px;}
+.g-plus{flex:none; color:var(--accent); font-weight:900;}
+.g-addinput{flex:1; min-width:0; border:1px dashed var(--border); background:var(--surface); border-radius:7px; padding:5px 8px; font-size:.8rem; color:var(--text); font-family:inherit;}
+.g-addinput:focus{outline:2px solid var(--accent); outline-offset:0; border-style:solid;}
+.g-addclear{flex:none; background:none; border:none; color:var(--text-muted); font-size:1rem; line-height:1; cursor:pointer; padding:2px 4px;}
+.g-addclear:hover{color:var(--danger);}
+.g-addtrack{cursor:crosshair; user-select:none; -webkit-user-select:none; z-index:1;}
+.g-addhint{position:sticky; left:calc(var(--lw) + 8px); display:inline-block; margin-top:calc(var(--rh) / 2 - 9px); font-size:.7rem; color:var(--text-muted); line-height:16px; pointer-events:none;}
+.g-bar.draft{background:color-mix(in srgb, var(--accent) 22%, var(--surface)); color:var(--accent); border:2px dashed var(--accent); pointer-events:none;}

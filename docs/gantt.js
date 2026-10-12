@@ -3,6 +3,8 @@
  *
  * TaskhubGantt.html({tasks, today, checkable, clickable, narrow, width}) で HTML を返す。
  * width(表示できる横幅px)を渡すと、その幅いっぱいまで日付を並べる。
+ * addRow を渡すと、一番下に空の入力行を付ける(日付の欄をドラッグして期間を選び、名前を入れて追加)。
+ *   addRow = {s, e, title}(選択中の期間と入力中の名前。未選択なら空)
  * - 行には data-gtask="<タスクID>"、完了チェックには data-gcheck="<タスクID>" が付くので、
  *   クリック等は呼び出し側で拾う。
  * - タスクの期間は startDate〜dueDate。開始日が無ければ期限日の1日だけのバーにする。
@@ -59,10 +61,15 @@
   function html(opts){
     var list = sortRows(opts.tasks || []);
     var today = opts.today;
-    if(!list.length){
+    if(!list.length && !opts.addRow){
       return '<div class="g-empty">'+esc(opts.emptyText || 'タスクがまだありません。')+'</div>';
     }
     var sm = summary(list, today);
+    var draft = opts.addRow || null;
+    if(draft && draft.s){
+      if(!sm.start || draft.s < sm.start) sm.start = draft.s;
+      if(!sm.end || draft.e > sm.end) sm.end = draft.e;
+    }
     var DW = opts.narrow ? 24 : 30;
     var t0 = parse(today);
     var first = sm.start ? parse(sm.start) : t0;
@@ -139,6 +146,19 @@
       '</div>';
     }).join('');
 
+    if(draft){
+      var firstStr = fmt(first);
+      rows += '<div class="g-row g-addrow">' +
+        '<div class="g-lab"><span class="g-plus">＋</span>' +
+          '<input type="text" class="g-addinput" data-gadd placeholder="新しいタスク名" value="'+esc(draft.title || '')+'" maxlength="100" aria-label="新しいタスク名">' +
+          (draft.s ? '<button type="button" class="g-addclear" data-gclear title="選んだ期間を取り消す">×</button>' : '') +
+        '</div>' +
+        '<div class="g-track g-addtrack" data-gfirst="'+firstStr+'" data-gdw="'+DW+'" data-gn="'+n+'" style="width:'+(n*DW)+'px">' +
+          (draft.s ? draftBar(firstStr, DW, n, draft.s, draft.e) : '<div class="g-addhint">'+(opts.narrow ? '日付を2回タップして期間を選ぶ' : '日付の欄をドラッグして期間を選ぶ')+'</div>') +
+        '</div>' +
+      '</div>';
+    }
+
     return '<div class="gantt'+(opts.narrow ? ' narrow' : '')+'">' +
       '<div class="g-scroll">' +
         '<div class="g-inner">' +
@@ -158,6 +178,31 @@
     '</div>';
   }
 
+  /** 入力行で選んでいる期間のバー */
+  function draftBar(firstStr, DW, n, s, e){
+    var first = parse(firstStr);
+    var a = Math.max(0, diffDays(first, parse(s)));
+    var b = Math.min(n - 1, diffDays(first, parse(e)));
+    var days = b - a + 1;
+    var label = s === e ? mdw(s) : md(s)+'–'+md(e)+'（'+days+'日）';
+    return '<div class="g-bar draft" style="left:'+(a*DW+2)+'px;width:'+(days*DW-4)+'px"><span>'+label+'</span></div>';
+  }
+
+  /** 入力行の track 上の x 座標 → 日付文字列 */
+  function dateAt(track, clientX){
+    var r = track.getBoundingClientRect();
+    var dw = +track.dataset.gdw, n = +track.dataset.gn;
+    var i = Math.max(0, Math.min(n - 1, Math.floor((clientX - r.left) / dw)));
+    return fmt(addDays(parse(track.dataset.gfirst), i));
+  }
+
+  /** 画面全体を描き直さずに、選択中のバーだけ差し替える */
+  function setDraft(track, s, e){
+    var old = track.querySelector('.g-bar.draft, .g-addhint');
+    if(old) old.remove();
+    track.insertAdjacentHTML('beforeend', draftBar(track.dataset.gfirst, +track.dataset.gdw, +track.dataset.gn, s, e));
+  }
+
   /** 今日の線が見える位置まで横にスクロールする */
   function scrollToToday(root){
     var sc = root && root.querySelector('.g-scroll');
@@ -169,5 +214,5 @@
     if(x > visible * 0.7) sc.scrollLeft = x - visible * 0.3;
   }
 
-  window.TaskhubGantt = {html: html, summary: summary, span: span, scrollToToday: scrollToToday, md: md, mdw: mdw};
+  window.TaskhubGantt = {html: html, summary: summary, span: span, scrollToToday: scrollToToday, md: md, mdw: mdw, dateAt: dateAt, setDraft: setDraft};
 })();

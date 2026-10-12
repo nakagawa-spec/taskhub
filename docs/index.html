@@ -962,6 +962,7 @@
   function isBusy(){
     if(dragState.id) return true;
     if(dayDrag && dayDrag.active) return true;
+    if(gDrag) return true;
     if(!document.getElementById('taskPanel').hidden) return true;
     var a = document.activeElement;
     return !!(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.id !== 'searchInput' && document.getElementById('listArea').contains(a));
@@ -1105,7 +1106,7 @@
   // ---------------------------------------------------------------- 画面の更新
   // GitHub Pages は10分ほどキャッシュされるので、ボタンで最新の画面を取り直せるようにする。
   // version.json の version が APP_VERSION と違えば、新しい画面が公開されている。
-  var APP_VERSION = '2026.10.12.1';
+  var APP_VERSION = '2026.10.12.2';
   var updateNotified = false;
 
   function checkNewVersion(){
@@ -1694,6 +1695,9 @@
   // 共有ページ(share.html)は共有キー入りのURLを知っている人だけが開け、閲覧と完了チェックだけできる。
   var LS_PROJECT = 'taskhub.project';
   var selectedProjectId = null;
+  // ガントの一番下の入力行: 選んだ期間(s〜e)と入力中の名前。tap は スマホで1回目にタップした日
+  var gDraft = {s: '', e: '', title: '', tap: ''};
+  var gDrag = null;
   try{ selectedProjectId = localStorage.getItem(LS_PROJECT) || null; }catch(e){}
 
   function iconProject(){ return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M3 5h9M7 12h10M10 19h11" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>'; }
@@ -1701,6 +1705,7 @@
   function sortedProjects(){ return projects.slice().sort(function(a,b){ return (a.createdAt||'').localeCompare(b.createdAt||''); }); }
   function projectTasks(pid){ return tasks.filter(function(t){ return t.projectId === pid; }); }
   function selectProject(id){
+    if(id !== selectedProjectId) gDraft = {s: '', e: '', title: '', tap: ''};
     selectedProjectId = id || null;
     try{ localStorage.setItem(LS_PROJECT, id || ''); }catch(e){}
   }
@@ -1805,9 +1810,12 @@
           '</div>' +
         '</div>' +
         '<div class="progressbar" title="完了 '+s.pct+'%"><i style="width:'+s.pct+'%"></i></div>' +
-        TaskhubGantt.html({tasks: pts, today: today, checkable: true, clickable: true, narrow: window.innerWidth <= 600,
+        TaskhubGantt.html({tasks: pts, today: today, checkable: true, clickable: true, narrow: window.innerWidth <= 600, addRow: gDraft,
           width: document.getElementById('listArea').clientWidth - (window.innerWidth <= 600 ? 22 : 34),
-          emptyText: 'タスクがまだありません。「＋ タスクを追加」から登録します。'}) +
+          emptyText: 'タスクがまだありません。'}) +
+        '<div class="share-note">'+(window.innerWidth <= 600
+          ? '一番下の行で、日付を2回タップすると期間を選べます。名前を入れて確定すると追加されます。'
+          : '一番下の行で、日付の欄をドラッグすると期間を選べます。名前を入れて Enter で追加されます。')+'</div>' +
         '<div class="proj-foot">' +
           '<div class="g-legend"><span><i style="background:var(--accent)"></i>予定</span><span><i style="background:var(--danger)"></i>期限切れ</span><span><i style="background:var(--wait)"></i>先方待ち</span><span><i style="background:color-mix(in srgb, var(--done) 55%, var(--surface-alt))"></i>完了</span></div>' +
           '<span class="share-note">'+(API
@@ -1846,12 +1854,96 @@
       }
       else if(act === 'delete'){ deleteProject(p); }
     });
+    wireGanttAddRow(root);
     root.addEventListener('change', function(e){
       var cb = e.target.closest('[data-gcheck]');
       if(!cb) return;
       var t = findTask(cb.dataset.gcheck);
       if(t) toggleComplete(t);
     });
+  }
+
+  // ---- 一番下の入力行(期間をドラッグで選んで、名前を入れて追加)
+  function wireGanttAddRow(root){
+    var track = root.querySelector('.g-addtrack');
+    var input = root.querySelector('[data-gadd]');
+    if(!track || !input) return;
+    // マウス: 押したまま横に動かして期間を選ぶ
+    track.addEventListener('pointerdown', function(e){
+      if(e.pointerType !== 'mouse' || e.button !== 0) return;
+      e.preventDefault();
+      var d = TaskhubGantt.dateAt(track, e.clientX);
+      gDrag = {anchor: d};
+      gDraft.s = gDraft.e = d;
+      gDraft.tap = '';
+      TaskhubGantt.setDraft(track, d, d);
+      track.setPointerCapture(e.pointerId);
+    });
+    track.addEventListener('pointermove', function(e){
+      if(!gDrag) return;
+      var d = TaskhubGantt.dateAt(track, e.clientX);
+      var s = d < gDrag.anchor ? d : gDrag.anchor, en = d < gDrag.anchor ? gDrag.anchor : d;
+      if(s === gDraft.s && en === gDraft.e) return;
+      gDraft.s = s; gDraft.e = en;
+      TaskhubGantt.setDraft(track, s, en);
+    });
+    function endDrag(){
+      if(!gDrag) return;
+      gDrag = null;
+      gDraft.title = input.value;
+      render();
+      var inp = document.querySelector('#listArea [data-gadd]');
+      if(inp){ inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
+    }
+    track.addEventListener('pointerup', endDrag);
+    track.addEventListener('pointercancel', endDrag);
+    // タッチ: 横スクロールとぶつからないよう、1回目のタップで開始日・2回目で終了日
+    var lastType = 'mouse';
+    track.addEventListener('pointerdown', function(e){ lastType = e.pointerType; }, true);
+    track.addEventListener('click', function(e){
+      if(lastType === 'mouse') return;
+      var d = TaskhubGantt.dateAt(track, e.clientX);
+      if(gDraft.tap){
+        gDraft.s = d < gDraft.tap ? d : gDraft.tap;
+        gDraft.e = d < gDraft.tap ? gDraft.tap : d;
+        gDraft.tap = '';
+      } else {
+        gDraft.s = gDraft.e = gDraft.tap = d;
+      }
+      gDraft.title = input.value;
+      render();
+    });
+    input.addEventListener('input', function(){ gDraft.title = input.value; });
+    input.addEventListener('keydown', function(e){
+      if(e.isComposing || e.keyCode === 229) return;  // 日本語変換の確定の Enter は無視
+      if(e.key === 'Enter'){ e.preventDefault(); addFromGantt(); }
+      else if(e.key === 'Escape'){ gDraft = {s: '', e: '', title: '', tap: ''}; render(); }
+    });
+    var clr = root.querySelector('[data-gclear]');
+    if(clr) clr.addEventListener('click', function(){
+      gDraft.s = gDraft.e = gDraft.tap = '';
+      gDraft.title = input.value;
+      render();
+    });
+  }
+
+  function addFromGantt(){
+    var title = (gDraft.title || '').trim();
+    if(!title || !selectedProjectId) return;
+    var now = new Date().toISOString();
+    clearNewFlags();
+    writeTask(null, {
+      title: title, projectId: selectedProjectId,
+      startDate: gDraft.s || '', dueDate: gDraft.e || '',
+      url: '', owner: '', priority: 'none', waiting: false, recurrence: 'none', weekdays: [], monthDay: 1, notes: '',
+      completed: false, completedAt: null, createdAt: now, updatedAt: now, order: Date.now(),
+      subtasks: [], progress: '', isNew: true
+    }, true);
+    gDraft = {s: '', e: '', title: '', tap: ''};
+    render();
+    // 続けて入力できるように
+    var inp = document.querySelector('#listArea [data-gadd]');
+    if(inp) inp.focus();
   }
 
   function dueDisplay(t){
