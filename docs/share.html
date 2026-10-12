@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<title>プロジェクト</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<script src="config.js"></script>
+<script src="gantt.js"></script>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@700;900&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@500;600&display=swap">
+<link rel="stylesheet" href="gantt.css">
+<style>
+  :root{
+    color-scheme:light;
+    --bg:#FAFAF6; --surface:#FFFFFF; --surface-alt:#F3F1E9; --border:#E2DCC9;
+    --text:#2A2A24; --text-muted:#7A7365; --accent:#2E5C4E; --accent-soft:#DCE8E1;
+    --danger:#B23A2E; --danger-soft:#F6DCD8; --warning:#B4741E; --warning-soft:#F3E3C8;
+    --done:#7C8B6F; --wait:#3E6B8C; --wait-soft:#E1EAF0;
+    --shadow:0 1px 2px rgba(30,26,16,0.05), 0 4px 14px rgba(30,26,16,0.05);
+    font-family:'Noto Sans JP','Zen Kaku Gothic New',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  [hidden]{display:none!important;}
+  body{background:var(--bg); color:var(--text); margin:0; padding:20px clamp(16px, 4vw, 56px) 48px; font-size:14px;}
+  .wrap{max-width:1440px; margin:0 auto; display:flex; flex-direction:column; gap:16px;}
+  .eyebrow{font-size:.72rem; color:var(--text-muted); font-weight:700; letter-spacing:.04em;}
+  h1{font-family:'Zen Kaku Gothic New',sans-serif; font-weight:900; font-size:1.5rem; margin:2px 0 0; word-break:break-word;}
+  .card{background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px; box-shadow:var(--shadow); display:flex; flex-direction:column; gap:12px;}
+  .stats{display:flex; gap:8px; flex-wrap:wrap;}
+  .stat{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:8px 12px; display:flex; align-items:baseline; gap:6px; box-shadow:var(--shadow);}
+  .stat b{font-family:'JetBrains Mono',monospace; font-size:1.05rem;}
+  .stat span{font-size:.72rem; color:var(--text-muted);}
+  .stat.late b{color:var(--danger);}
+  .progressbar{height:8px; border-radius:99px; background:var(--surface-alt); border:1px solid var(--border); overflow:hidden;}
+  .progressbar i{display:block; height:100%; background:var(--accent); border-radius:99px; transition:width .3s;}
+  .note{font-size:.76rem; color:var(--text-muted);}
+  .foot{display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;}
+  .banner{border-radius:10px; padding:9px 12px; font-size:.8rem; font-weight:500; background:var(--danger-soft); color:var(--danger);}
+  .msg{background:var(--surface); border:1px dashed var(--border); border-radius:14px; padding:40px 20px; text-align:center; color:var(--text-muted);}
+  .msg b{display:block; color:var(--text); font-family:'Zen Kaku Gothic New',sans-serif; font-size:1.05rem; margin-bottom:6px;}
+  .reload{font-size:.74rem; color:var(--text-muted); background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:6px 11px; cursor:pointer; font-family:inherit;}
+  .reload:hover{color:var(--accent); border-color:var(--accent);}
+  @media (max-width:600px){
+    body{padding-top:14px;}
+    h1{font-size:1.25rem;}
+    .card{padding:12px 10px;}
+    .stat{flex:1; justify-content:center; padding:8px 6px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">プロジェクト共有</div>
+    <h1 id="projName">読み込み中…</h1>
+  </header>
+  <div id="banner"></div>
+  <div id="main"><div class="msg">読み込み中…</div></div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var API = String((window.TASKHUB_CONFIG || {}).apiUrl || '').trim();
+  var POLL_MS = 60000;
+  var params = new URLSearchParams(location.hash.replace(/^#/, ''));
+  var PID = params.get('p') || '';
+  var KEY = params.get('k') || '';
+  var project = null;
+  var tasks = [];
+  var busy = 0;      // 送信中の完了チェックの数(その間は再読み込みしない)
+  var stopped = false;
+
+  function pad(n){ return String(n).padStart(2,'0'); }
+  function todayStr(){ var d = new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+  function api(action, extra){
+    var body = Object.assign({action: action, project: PID, key: KEY}, extra || {});
+    return fetch(API, {method: 'POST', body: JSON.stringify(body)})
+      .then(function(r){ return r.json(); })
+      .then(function(res){
+        if(!res.ok){ var e = new Error(res.error || 'エラーが発生しました'); e.code = res.code; throw e; }
+        return res;
+      });
+  }
+
+  function fatal(title, text){
+    stopped = true;
+    document.getElementById('projName').textContent = title;
+    document.title = title;
+    document.getElementById('main').innerHTML = '<div class="msg"><b>'+esc(title)+'</b>'+esc(text)+'</div>';
+  }
+
+  function setBanner(msg){
+    document.getElementById('banner').innerHTML = msg ? '<div class="banner">'+esc(msg)+'</div>' : '';
+  }
+
+  function render(){
+    var today = todayStr();
+    var s = TaskhubGantt.summary(tasks, today);
+    var period = s.start ? TaskhubGantt.mdw(s.start)+' 〜 '+TaskhubGantt.mdw(s.end) : '未定';
+    document.getElementById('projName').textContent = project.name;
+    document.title = project.name + '｜プロジェクト';
+    var main = document.getElementById('main');
+    var sc = main.querySelector('.g-scroll');
+    var keep = sc ? sc.scrollLeft : null;
+    main.innerHTML =
+      '<div class="card">' +
+        '<div class="stats">' +
+          '<div class="stat"><b>'+s.done+'/'+s.total+'</b><span>完了</span></div>' +
+          '<div class="stat"><b>'+s.pct+'%</b><span>進捗</span></div>' +
+          (s.overdue ? '<div class="stat late"><b>'+s.overdue+'</b><span>期限切れ</span></div>' : '') +
+          '<div class="stat"><b style="font-size:.85rem">'+period+'</b></div>' +
+        '</div>' +
+        '<div class="progressbar"><i style="width:'+s.pct+'%"></i></div>' +
+        TaskhubGantt.html({tasks: tasks, today: today, checkable: true, clickable: false, narrow: window.innerWidth <= 600,
+          width: main.clientWidth - (window.innerWidth <= 600 ? 22 : 34)}) +
+        '<div class="foot">' +
+          '<div class="g-legend"><span><i style="background:var(--accent)"></i>予定</span><span><i style="background:var(--danger)"></i>期限切れ</span><span><i style="background:var(--wait)"></i>先方待ち</span><span><i style="background:color-mix(in srgb, var(--done) 55%, var(--surface-alt))"></i>完了</span></div>' +
+          '<button type="button" class="reload" id="reloadBtn">最新の状態にする</button>' +
+        '</div>' +
+        '<div class="note">左のチェックで完了にできます。タスクの追加や日程の変更は、プロジェクトの管理者が行います。</div>' +
+      '</div>';
+    var nsc = main.querySelector('.g-scroll');
+    if(nsc && keep !== null) nsc.scrollLeft = keep;
+    else TaskhubGantt.scrollToToday(main);
+    document.getElementById('reloadBtn').addEventListener('click', load);
+  }
+
+  function load(){
+    if(stopped || busy) return Promise.resolve();
+    return api('shareLoad').then(function(res){
+      if(busy) return;
+      project = res.project;
+      tasks = res.tasks || [];
+      setBanner('');
+      render();
+    }).catch(function(err){
+      if(err.code === 'SHARE') return fatal('プロジェクトが見つかりません', 'このプロジェクトは削除されたか、URLが正しくありません。共有した人に確認してください。');
+      if(!project) return fatal('読み込めませんでした', '通信できませんでした。時間をおいて開き直してください。（'+err.message+'）');
+      setBanner('最新の状態を取得できませんでした。前回の内容を表示しています。');
+    });
+  }
+
+  document.getElementById('main').addEventListener('change', function(e){
+    var cb = e.target.closest('[data-gcheck]');
+    if(!cb) return;
+    var t = tasks.find(function(x){ return x.id === cb.dataset.gcheck; });
+    if(!t) return;
+    var done = cb.checked;
+    var before = t.completed;
+    t.completed = done;
+    busy++;
+    render();
+    api('shareToggle', {task: t.id, done: done}).then(function(){
+      setBanner('');
+    }).catch(function(err){
+      t.completed = before;
+      if(err.code === 'SHARE') return fatal('プロジェクトが見つかりません', 'このプロジェクトは削除されたか、URLが正しくありません。');
+      setBanner('保存できませんでした。もう一度お試しください。（'+err.message+'）');
+    }).then(function(){
+      busy--;
+      if(!stopped) render();
+    });
+  });
+
+  if(!API) fatal('設定がありません', 'config.js に接続先が設定されていません。');
+  else if(!PID || !KEY) fatal('URLが正しくありません', '共有されたURLを、最後まで省略せずに開いてください。');
+  else {
+    load();
+    setInterval(function(){ if(!document.hidden) load(); }, POLL_MS);
+    document.addEventListener('visibilitychange', function(){ if(!document.hidden) load(); });
+    var resizeTimer = null, lastWidth = window.innerWidth;
+    window.addEventListener('resize', function(){
+      if(!project || stopped || window.innerWidth === lastWidth) return;
+      lastWidth = window.innerWidth;
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(render, 200);
+    });
+  }
+})();
+</script>
+</body>
+</html>

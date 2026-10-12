@@ -6,6 +6,8 @@
  * - 画面(GitHub Pages)からは POST(本文はJSON文字列、Content-Type: text/plain)で呼ぶ。
  * - 読み書きには合言葉が必要。スクリプト プロパティ PASSCODE に設定する。
  *   PASSCODE が未設定のあいだは、安全のためすべての読み書きを断る。
+ * - 例外はプロジェクトの共有ページ(share.html)。合言葉の代わりに、プロジェクトごとの
+ *   共有キー(推測できない長い文字列)で、そのプロジェクトのタスクの閲覧と完了チェックだけできる。
  */
 
 var MAX_FAIL = 10;          // この回数まちがえると一時ロック
@@ -26,6 +28,11 @@ function doPost(e) {
     return json_({ ok: false, error: 'リクエストの形式が正しくありません' });
   }
   try {
+    var share = SHARE_ACTIONS[req.action];
+    if (share) {
+      ensureSheet_();
+      return json_(share(req));
+    }
     var ng = checkPass_(req.pass);
     if (ng) return json_(ng);
     ensureSheet_();
@@ -41,6 +48,12 @@ var ACTIONS = {
   load: load_,
   changes: changes_,
   batch: batch_
+};
+
+// 共有ページ用(合言葉なし。共有キーで確認する)
+var SHARE_ACTIONS = {
+  shareLoad: shareLoad_,
+  shareToggle: shareToggle_
 };
 
 // ---------------------------------------------------------------- 合言葉
@@ -130,6 +143,73 @@ function nextVersion_() {
 
 function parse_(s) {
   try { return JSON.parse(s); } catch (e) { return null; }
+}
+
+// ---------------------------------------------------------------- プロジェクトの共有ページ
+// プロジェクトは tasks シートに kind:'project' の行として入っている。
+// プロジェクトのタスクは json.projectId でつながる。共有ページに返すのは見せてよい項目だけ。
+
+var SHARE_FIELDS = ['title', 'owner', 'startDate', 'dueDate', 'completed', 'waiting', 'order'];
+var SHARE_NG = { ok: false, error: 'このプロジェクトは見つかりません(削除されたか、URLが正しくありません)', code: 'SHARE' };
+
+/** 共有キーが合っていればプロジェクトを返す。合わなければ null */
+function findSharedProject_(rows, req) {
+  var pid = String(req.project || '');
+  var key = String(req.key || '');
+  if (!pid || key.length < 16) return null;
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    if (r.id !== pid || r.deleted === true) continue;
+    var p = parse_(r.json);
+    if (p && p.kind === 'project' && p.shareKey && p.shareKey === key) return p;
+    return null;
+  }
+  return null;
+}
+
+function shareLoad_(req) {
+  var rows = rows_();
+  var proj = findSharedProject_(rows, req);
+  if (!proj) return SHARE_NG;
+  var pid = String(req.project);
+  var tasks = [];
+  rows.forEach(function (r) {
+    if (r.deleted === true) return;
+    var t = parse_(r.json);
+    if (!t || t.kind === 'project' || t.projectId !== pid) return;
+    var o = { id: r.id };
+    SHARE_FIELDS.forEach(function (f) { if (t[f] !== undefined) o[f] = t[f]; });
+    tasks.push(o);
+  });
+  return { ok: true, project: { name: proj.name || '', note: proj.note || '' }, tasks: tasks };
+}
+
+/** 共有ページからの完了チェック。そのプロジェクトのタスクの completed だけ変えられる */
+function shareToggle_(req) {
+  var tid = String(req.task || '');
+  if (!tid) return { ok: false, error: 'タスクが指定されていません' };
+  return withLock_(function () {
+    var rows = rows_();
+    if (!findSharedProject_(rows, req)) return SHARE_NG;
+    var sh = sheet_();
+    var values = sh.getDataRange().getValues();
+    for (var i = 1; i < values.length; i++) {
+      if (String(values[i][0]) !== tid) continue;
+      var t = values[i][3] === true ? null : parse_(values[i][1]);
+      if (!t || t.projectId !== String(req.project)) break;
+      if (t.recurrence && t.recurrence !== 'none') return { ok: false, error: '繰り返しタスクは共有ページから完了にできません' };
+      var done = !!req.done;
+      var now = new Date().toISOString();
+      t.completed = done;
+      t.completedAt = done ? now : null;
+      t.updatedAt = now;
+      t.isNew = false;
+      var v = nextVersion_();
+      sh.getRange(i + 1, 1, 1, COLS.length).setValues([[tid, JSON.stringify(t), v, false]]);
+      return { ok: true, version: v };
+    }
+    return { ok: false, error: 'このタスクは見つかりません(削除された可能性があります)', code: 'NOTASK' };
+  });
 }
 
 // ---------------------------------------------------------------- シート操作

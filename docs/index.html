@@ -7,6 +7,8 @@
 <title>タスクハブ</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <script src="config.js"></script>
+<script src="gantt.js"></script>
+<link rel="stylesheet" href="gantt.css">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{font:14px -apple-system,BlinkMacSystemFont,sans-serif}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700;900&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@500;600&display=swap">
@@ -272,6 +274,35 @@
   .dghost{position:fixed; z-index:60; pointer-events:none; box-shadow:0 10px 28px rgba(20,18,10,.22); opacity:.95; transform:rotate(1.5deg); margin:0;}
   body.dragging-day, body.dragging-day *{cursor:grabbing!important;}
 
+  /* ---- プロジェクト(ガントチャート) ---- */
+  .pill.project{background:var(--surface); color:var(--accent); border:1px solid color-mix(in srgb, var(--accent) 35%, var(--border)); font-weight:500; display:inline-flex; align-items:center; gap:3px;}
+  .proj-view{display:flex; flex-direction:column; gap:16px;}
+  .proj-picker{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
+  .proj-chip{display:inline-flex; align-items:center; gap:8px; border:1px solid var(--border); background:var(--surface-alt); color:var(--text); border-radius:10px; padding:8px 12px; font-family:inherit; font-size:.84rem; font-weight:700; cursor:pointer; max-width:100%;}
+  .proj-chip span{white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .proj-chip small{font-family:'JetBrains Mono',monospace; font-size:.7rem; color:var(--text-muted); font-weight:600; flex:none;}
+  .proj-chip:hover{border-color:var(--accent);}
+  .proj-chip.on{background:var(--accent); border-color:var(--accent); color:var(--accent-contrast);}
+  .proj-chip.on small{color:var(--accent-contrast); opacity:.85;}
+  .proj-new{display:flex; gap:6px; flex:1 1 260px; max-width:420px;}
+  .proj-new input{flex:1; min-width:0; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:8px 11px; font-size:.84rem; color:var(--text); font-family:inherit;}
+  .proj-new .btn{padding:8px 14px; white-space:nowrap;}
+  .proj-head{display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap;}
+  .proj-name{font-family:'Zen Kaku Gothic New',sans-serif; font-size:1.2rem; font-weight:900; margin:0; word-break:break-word;}
+  .proj-sub{display:flex; gap:6px 14px; flex-wrap:wrap; font-size:.76rem; color:var(--text-muted); margin-top:4px;}
+  .proj-sub b{color:var(--text); font-family:'JetBrains Mono',monospace; font-weight:600;}
+  .proj-sub .late{color:var(--danger); font-weight:700;}
+  .proj-actions{display:flex; gap:6px; flex-wrap:wrap;}
+  .proj-actions button{font-size:.76rem; font-weight:700; color:var(--text); background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:6px 11px; cursor:pointer; font-family:inherit; display:inline-flex; align-items:center; gap:5px;}
+  .proj-actions button:hover{border-color:var(--accent); color:var(--accent);}
+  .proj-actions button.danger:hover{border-color:var(--danger); color:var(--danger); background:var(--danger-soft);}
+  .progressbar{height:8px; border-radius:99px; background:var(--surface-alt); border:1px solid var(--border); overflow:hidden;}
+  .progressbar i{display:block; height:100%; background:var(--accent); border-radius:99px;}
+  .proj-foot{display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:space-between;}
+  .proj-view .g-bar{cursor:pointer;}
+  .proj-view .g-bar:hover{filter:brightness(1.1);}
+  .share-note{font-size:.74rem; color:var(--text-muted);}
+
   .tools{display:flex; align-items:center; gap:8px; flex-wrap:wrap; border-top:1px solid var(--border); padding-top:14px; margin-top:6px;}
   .tools .mode{font-size:.74rem; color:var(--text-muted); margin-right:auto;}
   .tools button{font-size:.74rem; color:var(--text-muted); background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:6px 11px; cursor:pointer; font-family:inherit;}
@@ -308,7 +339,12 @@
     .addbtn{position:fixed; right:16px; bottom:calc(16px + env(safe-area-inset-bottom,0px)); z-index:40; width:58px; height:58px; border-radius:50%; padding:0; justify-content:center; font-size:0; box-shadow:0 6px 20px rgba(20,18,10,.25);}
     .addbtn svg{width:26px; height:26px;}
     .view-tabs{align-self:stretch;}
-    .view-tab{flex:1; justify-content:center; padding:9px 10px;}
+    .view-tab{flex:1; justify-content:center; padding:9px 4px; gap:4px; font-size:.78rem; white-space:nowrap;}
+    .view-tab svg{flex:none;}
+    .proj-new{flex-basis:100%; max-width:none;}
+    .proj-new input{font-size:16px;}
+    .proj-actions{width:100%;}
+    .proj-actions button{flex:1 1 auto; justify-content:center; padding:9px 10px;}
     .stats{gap:6px; flex-wrap:nowrap;}
     .stat{flex:1; justify-content:center; padding:8px 6px; gap:4px;}
     .stat b{font-size:1rem;}
@@ -390,6 +426,10 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M8 3v4M16 3v4M3 10h18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
         カレンダー
       </button>
+      <button type="button" class="view-tab" role="tab" data-view="project">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M3 5h9M7 12h10M10 19h11" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+        プロジェクト
+      </button>
     </div>
     <div class="searchrow">
       <input type="text" id="searchInput" placeholder="タスク名・備考・URLで検索">
@@ -407,6 +447,16 @@
     <div class="field">
       <label for="f_title">タスク名</label>
       <input type="text" id="f_title" placeholder="例）東店見学会の集客バナー作成" required>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label for="f_project">プロジェクト（任意）</label>
+        <select id="f_project"><option value="">なし</option></select>
+      </div>
+      <div class="field" id="startField" hidden>
+        <label for="f_start">開始日（任意・空なら期限日の1日だけ）</label>
+        <input type="date" id="f_start">
+      </div>
     </div>
     <div class="row2">
       <div class="field">
@@ -438,7 +488,7 @@
         </select>
       </div>
     </div>
-    <div class="field">
+    <div class="field" id="recurrenceField">
       <label for="f_recurrence">繰り返し（任意）</label>
       <select id="f_recurrence">
         <option value="none">なし</option>
@@ -485,6 +535,7 @@
   "use strict";
   var WEEKDAY_LABELS = ['日','月','火','水','木','金','土'];
   var tasks = [];
+  var projects = [];   // kind:'project' の行。タスクとは別に持つ(同じシートに入っている)
   var loaded = false;
   var editingId = null;
   var showDone = false;
@@ -495,7 +546,7 @@
   var editingDue = new Set();
   var dragState = {id:null, container:null};
   var viewMode = 'list';
-  try{ var savedView = localStorage.getItem('taskhub.view'); if(savedView === 'calendar' || savedView === 'day') viewMode = savedView; }catch(e){}
+  try{ var savedView = localStorage.getItem('taskhub.view'); if(savedView === 'calendar' || savedView === 'day' || savedView === 'project') viewMode = savedView; }catch(e){}
   var calMonth = (function(){ var d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); })();
   var calSelected = null;
 
@@ -596,14 +647,19 @@
       });
     });
     document.getElementById('cancelBtn').addEventListener('click', closePanel);
-    document.getElementById('f_recurrence').addEventListener('change', function(){
-      var v = this.value;
-      document.getElementById('weeklyField').hidden = (v !== 'weekly');
-      document.getElementById('monthlyField').hidden = (v !== 'monthly');
-    });
+    document.getElementById('f_recurrence').addEventListener('change', syncFormFields);
+    document.getElementById('f_project').addEventListener('change', syncFormFields);
     document.getElementById('taskPanel').addEventListener('submit', function(e){
       e.preventDefault();
       submitForm();
+    });
+    // ガントチャートは横幅に合わせて日数を決めるので、幅が変わったら描き直す
+    var resizeTimer = null, lastWidth = window.innerWidth;
+    window.addEventListener('resize', function(){
+      if(viewMode !== 'project' || window.innerWidth === lastWidth) return;
+      lastWidth = window.innerWidth;
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function(){ if(!isBusy()) render(); }, 200);
     });
     document.getElementById('searchInput').addEventListener('input', function(){
       searchTerm = this.value.trim().toLowerCase();
@@ -620,8 +676,29 @@
     });
   }
 
-  function openPanel(task){
+  // プロジェクトのタスクは開始日を持ち、繰り返しにはできない(ガントチャートで期間を表すため)
+  function syncFormFields(){
+    var inProject = !!document.getElementById('f_project').value;
+    document.getElementById('startField').hidden = !inProject;
+    document.getElementById('recurrenceField').hidden = inProject;
+    if(inProject) document.getElementById('f_recurrence').value = 'none';
+    var v = document.getElementById('f_recurrence').value;
+    document.getElementById('weeklyField').hidden = (v !== 'weekly');
+    document.getElementById('monthlyField').hidden = (v !== 'monthly');
+  }
+
+  function fillProjectOptions(selected){
+    var sel = document.getElementById('f_project');
+    sel.innerHTML = '<option value="">なし</option>' + sortedProjects().map(function(p){
+      return '<option value="'+escapeHtml(p.id)+'">'+escapeHtml(p.name)+'</option>';
+    }).join('');
+    sel.value = findProject(selected) ? selected : '';
+  }
+
+  function openPanel(task, presetProjectId){
     editingId = task ? task.id : null;
+    fillProjectOptions(task ? task.projectId : presetProjectId);
+    document.getElementById('f_start').value = task ? (task.startDate||'') : '';
     document.getElementById('panelTitle').textContent = task ? 'タスクを編集' : '新しいタスク';
     document.getElementById('f_title').value = task ? task.title : '';
     document.getElementById('f_url').value = task ? (task.url||'') : '';
@@ -632,8 +709,7 @@
     document.getElementById('f_notes').value = task ? (task.notes||'') : '';
     var rec = task ? (task.recurrence||'none') : 'none';
     document.getElementById('f_recurrence').value = rec;
-    document.getElementById('weeklyField').hidden = (rec !== 'weekly');
-    document.getElementById('monthlyField').hidden = (rec !== 'monthly');
+    syncFormFields();
     document.getElementById('f_monthday').value = task ? (task.monthDay||1) : 1;
     selectedWeekdays = new Set(task && task.weekdays ? task.weekdays : []);
     var buttons = document.querySelectorAll('#weekdayPicker button');
@@ -657,14 +733,23 @@
       title = hostLabel(url);
     }
     if(!title) return;
+    var projectId = document.getElementById('f_project').value;
+    var startDate = projectId ? document.getElementById('f_start').value : '';
+    var dueDate = document.getElementById('f_due').value || '';
+    if(startDate && dueDate && startDate > dueDate){
+      alert('開始日が期限より後になっています。日付を確かめてください。');
+      return;
+    }
     var data = {
       title: title,
+      projectId: projectId,
+      startDate: startDate,
       url: url,
       owner: document.getElementById('f_owner').value.trim(),
-      dueDate: document.getElementById('f_due').value || '',
+      dueDate: dueDate,
       priority: document.getElementById('f_priority').value,
       waiting: document.getElementById('f_waiting').checked,
-      recurrence: document.getElementById('f_recurrence').value,
+      recurrence: projectId ? 'none' : document.getElementById('f_recurrence').value,
       weekdays: Array.from(selectedWeekdays),
       monthDay: parseInt(document.getElementById('f_monthday').value,10) || 1,
       notes: document.getElementById('f_notes').value.trim(),
@@ -689,6 +774,8 @@
   function duplicateTask(t){
     var copy = {
       title: t.title,
+      projectId: t.projectId || '',
+      startDate: t.startDate || '',
       url: t.url || '',
       owner: t.owner || '',
       dueDate: t.dueDate || '',
@@ -776,9 +863,17 @@
       });
   }
 
+  // シートにはタスクとプロジェクトが同じ形で入っている。画面では kind で振り分けて持つ
+  function isProjectItem(o){ return !!(o && o.kind === 'project'); }
+  function allItems(){ return tasks.concat(projects); }
+  function setAllItems(list){
+    tasks = list.filter(function(o){ return !isProjectItem(o); });
+    projects = list.filter(isProjectItem);
+  }
+
   function saveCache(){
-    if(!API){ lsSet(LS_LOCAL, tasks); return; }
-    lsSet(LS_CACHE, {tasks: tasks, version: version});
+    if(!API){ lsSet(LS_LOCAL, allItems()); return; }
+    lsSet(LS_CACHE, {tasks: allItems(), version: version});
     lsSet(LS_OUTBOX, outbox);
   }
 
@@ -821,11 +916,11 @@
   function fullLoad(){
     return api('load').then(function(res){
       var pending = pendingIds();
-      var keep = tasks.filter(function(t){ return pending[t.id]; });
+      var keep = allItems().filter(function(t){ return pending[t.id]; });
       var next = Object.keys(res.tasks).filter(function(id){ return !pending[id]; }).map(function(id){
         return Object.assign({}, res.tasks[id], {id: id});
       });
-      tasks = next.concat(keep.filter(function(t){ return outbox.some(function(o){ return o.id === t.id && o.value; }); }));
+      setAllItems(next.concat(keep.filter(function(t){ return outbox.some(function(o){ return o.id === t.id && o.value; }); })));
       version = res.version || 0;
       loaded = true;
       saveCache();
@@ -844,15 +939,17 @@
       if(!res) return;
       var pending = pendingIds();
       var changed = false;
+      var all = allItems();
       Object.keys(res.tasks).forEach(function(id){
         if(pending[id]) return;
         var v = res.tasks[id];
-        var idx = tasks.findIndex(function(t){ return t.id === id; });
-        if(v === null){ if(idx !== -1){ tasks.splice(idx, 1); changed = true; } return; }
+        var idx = all.findIndex(function(t){ return t.id === id; });
+        if(v === null){ if(idx !== -1){ all.splice(idx, 1); changed = true; } return; }
         var nt = Object.assign({}, v, {id: id});
-        if(idx === -1) tasks.push(nt); else tasks[idx] = nt;
+        if(idx === -1) all.push(nt); else all[idx] = nt;
         changed = true;
       });
+      if(changed) setAllItems(all);
       version = Math.max(version, res.version || 0);
       saveCache();
       if(changed && !isBusy()) render();
@@ -905,7 +1002,7 @@
   function initDb(){
     var mode = document.getElementById('modeLabel');
     if(!API){
-      tasks = lsGet(LS_LOCAL) || [];
+      setAllItems(lsGet(LS_LOCAL) || []);
       loaded = true;
       mode.textContent = 'お試しモード（このブラウザの中だけに保存）';
       setBanner('warn', 'お試しモードです。config.js に GAS の URL を入れると、スプレッドシートに保存されます。');
@@ -917,7 +1014,7 @@
     var cache = lsGet(LS_CACHE);
     outbox = lsGet(LS_OUTBOX) || [];
     if(cache && cache.tasks){
-      tasks = cache.tasks;
+      setAllItems(cache.tasks);
       version = cache.version || 0;
       loaded = true;
       render();
@@ -957,7 +1054,7 @@
       showGate('');
     });
     document.getElementById('exportBtn').addEventListener('click', function(){
-      var data = {app: 'taskhub', exportedAt: new Date().toISOString(), tasks: tasks};
+      var data = {app: 'taskhub', exportedAt: new Date().toISOString(), tasks: allItems()};
       var blob = new Blob([JSON.stringify(data, null, 1)], {type: 'application/json'});
       var a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
@@ -974,19 +1071,21 @@
       f.text().then(function(text){
         var data = JSON.parse(text);
         var list = Array.isArray(data) ? data : (data && data.tasks) || [];
-        list = list.filter(function(t){ return t && t.title; });
+        list = list.filter(function(t){ return t && (t.title || isProjectItem(t)); });
         if(!list.length){ alert('読み込めるタスクが見つかりませんでした。'); return; }
         if(!confirm(list.length + '件のタスクを読み込みます。同じIDのタスクはファイルの内容で上書きされます。')) return;
+        var all = allItems();
         list.forEach(function(t){
           var id = t.id || genId();
           var nt = Object.assign({}, t, {id: id});
-          var idx = tasks.findIndex(function(x){ return x.id === id; });
-          if(idx === -1) tasks.push(nt); else tasks[idx] = nt;
+          var idx = all.findIndex(function(x){ return x.id === id; });
+          if(idx === -1) all.push(nt); else all[idx] = nt;
           if(API){
             outbox = outbox.filter(function(o){ return o.id !== id; });
             outbox.push({id: id, value: stripId(nt)});
           }
         });
+        setAllItems(all);
         saveCache();
         render();
         setBanner('ok', list.length + '件のタスクを読み込みました。');
@@ -1006,7 +1105,7 @@
   // ---------------------------------------------------------------- 画面の更新
   // GitHub Pages は10分ほどキャッシュされるので、ボタンで最新の画面を取り直せるようにする。
   // version.json の version が APP_VERSION と違えば、新しい画面が公開されている。
-  var APP_VERSION = '2026.10.09.3';
+  var APP_VERSION = '2026.10.12.1';
   var updateNotified = false;
 
   function checkNewVersion(){
@@ -1025,7 +1124,7 @@
     var btns = document.querySelectorAll('[data-update]');
     btns.forEach(function(b){ b.disabled = true; b.textContent = '更新中…'; });
     // 未送信の変更を先に送ってから、画面のファイルをキャッシュを使わずに取り直す
-    var files = [location.pathname, 'config.js', 'favicon.svg', 'version.json'];
+    var files = [location.pathname, 'config.js', 'favicon.svg', 'version.json', 'gantt.js', 'gantt.css', 'share.html'];
     Promise.resolve(API ? flush() : null).catch(function(){}).then(function(){
       return Promise.all(files.map(function(f){ return fetch(f, {cache: 'reload'}).catch(function(){}); }));
     }).then(function(){
@@ -1049,7 +1148,8 @@
       return (t.title||'').toLowerCase().indexOf(term) !== -1 ||
              (t.notes||'').toLowerCase().indexOf(term) !== -1 ||
              (t.url||'').toLowerCase().indexOf(term) !== -1 ||
-             (t.owner||'').toLowerCase().indexOf(term) !== -1;
+             (t.owner||'').toLowerCase().indexOf(term) !== -1 ||
+             (findProject(t.projectId) ? findProject(t.projectId).name.toLowerCase().indexOf(term) !== -1 : false);
     });
 
     var active = filtered.filter(function(t){ return !t.completed; });
@@ -1065,6 +1165,17 @@
     if(viewMode === 'day'){
       area.innerHTML = renderDay(filtered);
       wireDayEvents();
+      return;
+    }
+    if(viewMode === 'project'){
+      var sc = area.querySelector('.g-scroll');
+      var keepScroll = sc && area.dataset.ganttFor === selectedProjectId ? sc.scrollLeft : null;
+      area.innerHTML = renderProjects();
+      wireProjectEvents();
+      area.dataset.ganttFor = selectedProjectId || '';
+      var nsc = area.querySelector('.g-scroll');
+      if(nsc && keepScroll !== null) nsc.scrollLeft = keepScroll;
+      else TaskhubGantt.scrollToToday(area);
       return;
     }
 
@@ -1369,6 +1480,7 @@
     }
     if(isRecurring(t)) meta.push('<span>'+iconRepeat()+' '+recurrenceLabel(t)+'</span>');
     if(t.waiting) meta.push('<span class="pill waiting">'+iconHourglass()+' 先方待ち</span>');
+    if(t.projectId) meta.push(projectPill(t));
     if(t.url) meta.push('<a href="'+escapeHtml(t.url)+'" target="_blank" rel="noopener">'+iconLink()+' '+escapeHtml(hostLabel(t.url))+'</a>');
 
     // 定例タスクは完了すると次回へ進むので、この日の完了表示からは戻せない
@@ -1577,6 +1689,171 @@
     }
   }
 
+  // ---------------------------------------------------------------- プロジェクト(ガントチャート)
+  // プロジェクトは kind:'project' の行。タスクは projectId で紐づき、リスト・DAY・カレンダーにもそのまま出る。
+  // 共有ページ(share.html)は共有キー入りのURLを知っている人だけが開け、閲覧と完了チェックだけできる。
+  var LS_PROJECT = 'taskhub.project';
+  var selectedProjectId = null;
+  try{ selectedProjectId = localStorage.getItem(LS_PROJECT) || null; }catch(e){}
+
+  function iconProject(){ return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M3 5h9M7 12h10M10 19h11" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>'; }
+  function findProject(id){ return id ? projects.find(function(p){ return p.id === id; }) : null; }
+  function sortedProjects(){ return projects.slice().sort(function(a,b){ return (a.createdAt||'').localeCompare(b.createdAt||''); }); }
+  function projectTasks(pid){ return tasks.filter(function(t){ return t.projectId === pid; }); }
+  function selectProject(id){
+    selectedProjectId = id || null;
+    try{ localStorage.setItem(LS_PROJECT, id || ''); }catch(e){}
+  }
+  function projectPill(t){
+    var p = t.projectId && findProject(t.projectId);
+    return p ? '<span class="pill project">'+iconProject()+escapeHtml(p.name)+'</span>' : '';
+  }
+
+  // 共有キー: 推測されないよう十分に長いランダム文字列(紛らわしい文字は除く)
+  function randomKey(len){
+    var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+    var buf = new Uint32Array(len);
+    crypto.getRandomValues(buf);
+    var s = '';
+    for(var i=0; i<len; i++) s += chars[buf[i] % chars.length];
+    return s;
+  }
+
+  function shareUrl(p){
+    return new URL('share.html', location.href).href + '#p=' + encodeURIComponent(p.id) + '&k=' + encodeURIComponent(p.shareKey);
+  }
+
+  function createProject(name){
+    var now = new Date().toISOString();
+    var p = {id: 'prj' + genId(), kind: 'project', name: name, shareKey: randomKey(28), createdAt: now, updatedAt: now};
+    projects.push(p);
+    selectProject(p.id);
+    queueSave(p.id, p);
+    render();
+  }
+
+  function writeProject(id, data){
+    var p = findProject(id);
+    if(!p) return;
+    Object.assign(p, data, {updatedAt: new Date().toISOString()});
+    queueSave(p.id, p);
+    render();
+  }
+
+  function deleteProject(p){
+    var list = projectTasks(p.id);
+    if(!confirm('「'+p.name+'」を削除します。\n\nこのプロジェクトのタスク '+list.length+' 件もタスクハブから一緒に消え、共有URLも開けなくなります。元に戻せません。')) return;
+    list.forEach(function(t){ queueSave(t.id, null); });
+    tasks = tasks.filter(function(t){ return t.projectId !== p.id; });
+    projects = projects.filter(function(x){ return x.id !== p.id; });
+    queueSave(p.id, null);
+    selectProject(null);
+    render();
+  }
+
+  function copyShareUrl(p, btn){
+    var url = shareUrl(p);
+    var done = function(){
+      var old = btn.textContent;
+      btn.textContent = 'コピーしました';
+      setTimeout(function(){ btn.textContent = old; }, 1800);
+    };
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(url).then(done, function(){ prompt('このURLを共有してください', url); });
+    } else {
+      prompt('このURLを共有してください', url);
+    }
+  }
+
+  function renderProjects(){
+    var list = sortedProjects();
+    var sel = findProject(selectedProjectId) || list[0] || null;
+    selectedProjectId = sel ? sel.id : null;
+    var today = todayStr();
+    var picker =
+      '<div class="side-card">' +
+        '<h3>'+iconProject()+' プロジェクト（'+list.length+'）</h3>' +
+        '<div class="proj-picker">' +
+          list.map(function(p){
+            var s = TaskhubGantt.summary(projectTasks(p.id), today);
+            return '<button type="button" class="proj-chip'+(sel && p.id === sel.id ? ' on' : '')+'" data-proj="'+escapeHtml(p.id)+'"><span>'+escapeHtml(p.name)+'</span><small>'+s.done+'/'+s.total+'</small></button>';
+          }).join('') +
+          '<form class="proj-new" id="projNewForm"><input type="text" id="projNewName" placeholder="新しいプロジェクト名" maxlength="60" aria-label="新しいプロジェクト名"><button type="submit" class="btn primary">作成</button></form>' +
+        '</div>' +
+      '</div>';
+    if(!sel){
+      return '<div class="proj-view">'+picker+
+        '<div class="empty"><b>プロジェクトはまだありません</b><div>上の欄に名前を入れて「作成」すると、ガントチャートと共有用のURLができます。</div></div></div>';
+    }
+    var pts = projectTasks(sel.id);
+    var s = TaskhubGantt.summary(pts, today);
+    var period = s.start ? TaskhubGantt.mdw(s.start)+' 〜 '+TaskhubGantt.mdw(s.end) : '未定';
+    var main =
+      '<div class="side-card">' +
+        '<div class="proj-head">' +
+          '<div style="min-width:0">' +
+            '<h2 class="proj-name">'+escapeHtml(sel.name)+'</h2>' +
+            '<div class="proj-sub"><span>期間 <b>'+period+'</b></span><span>完了 <b>'+s.done+'/'+s.total+'</b>（'+s.pct+'%）</span>' +
+              (s.overdue ? '<span class="late">期限切れ '+s.overdue+'件</span>' : '') + '</div>' +
+          '</div>' +
+          '<div class="proj-actions">' +
+            '<button type="button" data-pact="add">＋ タスクを追加</button>' +
+            '<button type="button" data-pact="copy">共有URLをコピー</button>' +
+            '<button type="button" data-pact="open">共有ページを開く</button>' +
+            '<button type="button" data-pact="rename">名前を変更</button>' +
+            '<button type="button" class="danger" data-pact="delete">削除</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="progressbar" title="完了 '+s.pct+'%"><i style="width:'+s.pct+'%"></i></div>' +
+        TaskhubGantt.html({tasks: pts, today: today, checkable: true, clickable: true, narrow: window.innerWidth <= 600,
+          width: document.getElementById('listArea').clientWidth - (window.innerWidth <= 600 ? 22 : 34),
+          emptyText: 'タスクがまだありません。「＋ タスクを追加」から登録します。'}) +
+        '<div class="proj-foot">' +
+          '<div class="g-legend"><span><i style="background:var(--accent)"></i>予定</span><span><i style="background:var(--danger)"></i>期限切れ</span><span><i style="background:var(--wait)"></i>先方待ち</span><span><i style="background:color-mix(in srgb, var(--done) 55%, var(--surface-alt))"></i>完了</span></div>' +
+          '<span class="share-note">'+(API
+            ? '共有ページで見えるのは、タスク名・担当・日程・完了だけです（備考やリンクは見えません）。相手は完了チェックだけできます。'
+            : 'お試しモードでは共有ページは使えません。')+'</span>' +
+        '</div>' +
+      '</div>';
+    return '<div class="proj-view">'+picker+main+'</div>';
+  }
+
+  function wireProjectEvents(){
+    var root = document.querySelector('#listArea .proj-view');
+    if(!root) return;
+    document.getElementById('projNewForm').addEventListener('submit', function(e){
+      e.preventDefault();
+      var name = document.getElementById('projNewName').value.trim();
+      if(name) createProject(name);
+    });
+    root.addEventListener('click', function(e){
+      var chip = e.target.closest('[data-proj]');
+      if(chip){ selectProject(chip.dataset.proj); render(); return; }
+      var g = e.target.closest('[data-gtask]');
+      if(g){ var t = findTask(g.dataset.gtask); if(t) openPanel(t); return; }
+      var b = e.target.closest('[data-pact]');
+      if(!b) return;
+      var p = findProject(selectedProjectId);
+      if(!p) return;
+      var act = b.dataset.pact;
+      if(act === 'add'){ openPanel(null, p.id); }
+      else if((act === 'copy' || act === 'open') && !API){ alert('お試しモードでは共有ページは使えません。'); }
+      else if(act === 'copy'){ copyShareUrl(p, b); }
+      else if(act === 'open'){ window.open(shareUrl(p), '_blank', 'noopener'); }
+      else if(act === 'rename'){
+        var name = prompt('プロジェクト名', p.name);
+        if(name && name.trim()) writeProject(p.id, {name: name.trim()});
+      }
+      else if(act === 'delete'){ deleteProject(p); }
+    });
+    root.addEventListener('change', function(e){
+      var cb = e.target.closest('[data-gcheck]');
+      if(!cb) return;
+      var t = findTask(cb.dataset.gcheck);
+      if(t) toggleComplete(t);
+    });
+  }
+
   function dueDisplay(t){
     if(editingDue.has(t.id)){
       return '<input type="date" class="due-edit-input" value="'+t.dueDate+'" data-action="dueinput">';
@@ -1601,6 +1878,7 @@
     var repeatBadge = (t.recurrence && t.recurrence !== 'none') ? '<span class="icon-badge">'+iconRepeat()+recurrenceLabel(t)+'</span>' : '';
 
     var metaParts = [];
+    if(t.startDate && t.dueDate && t.startDate < t.dueDate) metaParts.push('<span>開始 '+fmtDue(t.startDate)+' 〜</span>');
     if(t.dueDate) metaParts.push(dueDisplay(t));
     if(t.url) metaParts.push('<a href="'+escapeHtml(t.url)+'" target="_blank" rel="noopener">'+iconLink()+' '+escapeHtml(hostLabel(t.url))+'</a>');
     if(repeatBadge) metaParts.push(repeatBadge);
@@ -1643,7 +1921,7 @@
       handle +
       '<input type="checkbox" class="check" '+(t.completed?'checked':'')+' data-action="toggle">' +
       '<div class="task-body">' +
-        '<div class="task-title-row"><span class="task-title">'+escapeHtml(t.title)+'</span>'+pill+waitingPill+ownerPill+'</div>' +
+        '<div class="task-title-row"><span class="task-title">'+escapeHtml(t.title)+'</span>'+pill+waitingPill+ownerPill+projectPill(t)+'</div>' +
         (metaParts.length ? '<div class="task-meta">'+metaParts.join('')+'</div>' : '') +
         (t.notes ? '<div class="task-notes">'+escapeHtml(t.notes)+'</div>' : '') +
         progressBlock +
@@ -1807,7 +2085,8 @@
     if(doneBtn) doneBtn.addEventListener('click', function(){ showDone = !showDone; render(); });
     var clearBtn = document.getElementById('clearDoneBtn');
     if(clearBtn) clearBtn.addEventListener('click', function(){
-      var doneIds = tasks.filter(function(t){ return t.completed; }).map(function(t){ return t.id; });
+      // プロジェクトのタスクはガントチャートの実績なので残す(プロジェクトを削除すると一緒に消える)
+      var doneIds = tasks.filter(function(t){ return t.completed && !findProject(t.projectId); }).map(function(t){ return t.id; });
       doneIds.forEach(function(id){ deleteTask(id); });
     });
     wireDragAndDrop();
