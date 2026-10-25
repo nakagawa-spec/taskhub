@@ -309,6 +309,30 @@
   .tools button:hover{color:var(--accent); border-color:var(--accent);}
   .banner.ok{background:var(--accent-soft); color:var(--accent);}
   .banner.err{background:var(--danger-soft); color:var(--danger);}
+  .inbox{margin-top:10px; background:var(--surface); border:1px solid color-mix(in srgb, var(--accent) 35%, var(--border)); border-radius:12px; box-shadow:var(--shadow);}
+  .inbox > summary{list-style:none; cursor:pointer; padding:10px 14px; display:flex; align-items:center; gap:8px; font-weight:700; font-size:.88rem; color:var(--accent);}
+  .inbox > summary::-webkit-details-marker{display:none;}
+  .inbox > summary .chev{transition:transform .15s; display:inline-flex;}
+  .inbox[open] > summary .chev{transform:rotate(90deg);}
+  .inbox > summary small{font-weight:500; color:var(--text-muted); font-size:.74rem;}
+  .inbox-count{background:var(--accent); color:var(--accent-contrast); border-radius:99px; padding:1px 8px; font-size:.72rem; font-family:'JetBrains Mono',monospace;}
+  .inbox-body{padding:0 14px 12px; display:flex; flex-direction:column; gap:12px;}
+  .inbox-group{border-top:1px solid var(--border); padding-top:10px; display:flex; flex-direction:column; gap:6px;}
+  .inbox-head{display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:.8rem;}
+  .inbox-head b{font-weight:700;}
+  .inbox-head a{color:var(--accent); text-decoration:none; font-size:.74rem; font-weight:500;}
+  .inbox-head .sp{flex:1;}
+  .inbox-head button, .cand button{font-family:inherit; font-size:.74rem; font-weight:700; border-radius:7px; padding:5px 10px; cursor:pointer; border:1px solid var(--border); background:var(--surface-alt); color:var(--text-muted); white-space:nowrap;}
+  .inbox-head button:hover, .cand button.ng:hover{border-color:var(--danger); color:var(--danger);}
+  .cand button.ok{background:var(--accent); border-color:var(--accent); color:var(--accent-contrast);}
+  .cand{display:grid; grid-template-columns:1fr 110px 132px auto auto; gap:6px; align-items:center; background:var(--surface-alt); border-radius:9px; padding:6px 8px;}
+  .cand input{min-width:0; width:100%; background:var(--surface); border:1px solid var(--border); border-radius:7px; padding:6px 8px; font-size:.82rem; color:var(--text); font-family:inherit;}
+  .cand input:focus{outline:2px solid var(--accent); outline-offset:0;}
+  .cand .hint{grid-column:1 / -1; font-size:.7rem; color:var(--text-muted); margin-top:-2px;}
+  @media (max-width:600px){
+    .cand{grid-template-columns:1fr 1fr;}
+    .cand .c-title{grid-column:1 / -1;}
+  }
   .update-bar{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;}
   .update-bar .btn{padding:7px 14px; font-size:.8rem;}
 
@@ -440,6 +464,7 @@
       <button type="button" class="btn primary" id="updateBarBtn" data-update>最新に更新</button>
     </div>
     <div id="dbBanner"></div>
+    <div id="inboxArea"></div>
   </header>
 
   <form class="panel" id="taskPanel" hidden>
@@ -536,6 +561,7 @@
   var WEEKDAY_LABELS = ['日','月','火','水','木','金','土'];
   var tasks = [];
   var projects = [];   // kind:'project' の行。タスクとは別に持つ(同じシートに入っている)
+  var candidates = []; // kind:'candidate' の行。議事録から取り出したタスク候補(受け箱)
   var loaded = false;
   var editingId = null;
   var showDone = false;
@@ -864,11 +890,14 @@
   }
 
   // シートにはタスクとプロジェクトが同じ形で入っている。画面では kind で振り分けて持つ
+  // 議事録から取り出したタスク候補は kind:'candidate'(受け箱に出し、追加するとタスクになる)
   function isProjectItem(o){ return !!(o && o.kind === 'project'); }
-  function allItems(){ return tasks.concat(projects); }
+  function isCandidateItem(o){ return !!(o && o.kind === 'candidate'); }
+  function allItems(){ return tasks.concat(projects, candidates); }
   function setAllItems(list){
-    tasks = list.filter(function(o){ return !isProjectItem(o); });
+    tasks = list.filter(function(o){ return !isProjectItem(o) && !isCandidateItem(o); });
     projects = list.filter(isProjectItem);
+    candidates = list.filter(isCandidateItem);
   }
 
   function saveCache(){
@@ -965,7 +994,8 @@
     if(gDrag) return true;
     if(!document.getElementById('taskPanel').hidden) return true;
     var a = document.activeElement;
-    return !!(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.id !== 'searchInput' && document.getElementById('listArea').contains(a));
+    return !!(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.id !== 'searchInput' &&
+      (document.getElementById('listArea').contains(a) || document.getElementById('inboxArea').contains(a)));
   }
 
   function handleAuthError(err){
@@ -1106,7 +1136,7 @@
   // ---------------------------------------------------------------- 画面の更新
   // GitHub Pages は10分ほどキャッシュされるので、ボタンで最新の画面を取り直せるようにする。
   // version.json の version が APP_VERSION と違えば、新しい画面が公開されている。
-  var APP_VERSION = '2026.10.12.2';
+  var APP_VERSION = '2026.10.25.1';
   var updateNotified = false;
 
   function checkNewVersion(){
@@ -1133,8 +1163,118 @@
     });
   }
 
+  // ---------------------------------------------------------------- 受け箱(議事録からのタスク候補)
+  // GAS が「議事録」フォルダの ToDo 表から作った候補を、会議ごとに並べる。
+  // 「追加」で普通のタスクにして候補は消す。「不要」は候補を消すだけ(同じ議事録から作り直されることはない)。
+  var LS_INBOX = 'taskhub.inboxOpen';
+  var inboxWired = false;
+
+  function renderInbox(){
+    var box = document.getElementById('inboxArea');
+    if(!loaded || !candidates.length){ box.innerHTML = ''; return; }
+    var open = true;
+    try{ open = localStorage.getItem(LS_INBOX) !== '0'; }catch(e){}
+    var groups = {}, keys = [];
+    candidates.forEach(function(c){
+      var k = c.docUrl || c.meeting || '';
+      if(!groups[k]){ groups[k] = []; keys.push(k); }
+      groups[k].push(c);
+    });
+    keys.sort(function(a,b){
+      return (groups[b][0].meetingDate||'').localeCompare(groups[a][0].meetingDate||'') || (groups[b][0].meeting||'').localeCompare(groups[a][0].meeting||'');
+    });
+    var html = keys.map(function(k){
+      var list = groups[k].slice().sort(function(a,b){ return (a.order||0) - (b.order||0); });
+      var c0 = list[0];
+      return '<div class="inbox-group">'+
+        '<div class="inbox-head"><b>'+escapeHtml(c0.meeting||'議事録')+'</b>'+
+          (c0.docUrl ? '<a href="'+escapeHtml(c0.docUrl)+'" target="_blank" rel="noopener">議事録を開く</a>' : '')+
+          '<span class="sp"></span>'+
+          '<button type="button" data-cand-all="'+escapeHtml(k)+'">この会議の候補をすべて不要にする</button>'+
+        '</div>'+
+        list.map(function(c){
+          var hint = [];
+          if(c.dueText && !c.dueDate) hint.push('期限の記載：'+c.dueText);
+          else if(c.dueText && c.dueText !== c.dueDate) hint.push('期限の記載：'+c.dueText+'（日付は自動で読み取ったもの）');
+          return '<div class="cand" data-cand="'+escapeHtml(c.id)+'">'+
+            '<input type="text" class="c-title" value="'+escapeHtml(c.title||'')+'" aria-label="タスク名">'+
+            '<input type="text" class="c-owner" value="'+escapeHtml(c.owner||'')+'" placeholder="担当" aria-label="担当">'+
+            '<input type="date" class="c-due" value="'+escapeHtml(c.dueDate||'')+'" aria-label="期限">'+
+            '<button type="button" class="ok" data-cand-act="add">追加</button>'+
+            '<button type="button" class="ng" data-cand-act="drop">不要</button>'+
+            (hint.length ? '<div class="hint">'+escapeHtml(hint.join(' '))+'</div>' : '')+
+          '</div>';
+        }).join('')+
+      '</div>';
+    }).join('');
+    box.innerHTML =
+      '<details class="inbox"'+(open ? ' open' : '')+'>'+
+        '<summary><span class="chev">'+iconChevron()+'</span>議事録からのタスク候補<span class="inbox-count">'+candidates.length+'</span>'+
+          '<small>追加するものだけ選んでください</small></summary>'+
+        '<div class="inbox-body">'+html+'</div>'+
+      '</details>';
+    if(!inboxWired) wireInbox(box);
+  }
+
+  function wireInbox(box){
+    inboxWired = true;
+    box.addEventListener('toggle', function(e){
+      if(e.target.classList.contains('inbox')){ try{ localStorage.setItem(LS_INBOX, e.target.open ? '1' : '0'); }catch(err){} }
+    }, true);
+    // 書きかけの直しを、他の候補を追加して画面が描き直されても消えないように覚えておく(保存はしない)
+    box.addEventListener('input', function(e){
+      var row = e.target.closest('[data-cand]');
+      var c = row && candidates.find(function(x){ return x.id === row.dataset.cand; });
+      if(!c) return;
+      if(e.target.classList.contains('c-title')) c.title = e.target.value;
+      if(e.target.classList.contains('c-owner')) c.owner = e.target.value;
+      if(e.target.classList.contains('c-due')) c.dueDate = e.target.value;
+    });
+    box.addEventListener('click', function(e){
+      var all = e.target.closest('[data-cand-all]');
+      if(all){
+        var key = all.dataset.candAll;
+        var list = candidates.filter(function(c){ return (c.docUrl || c.meeting || '') === key; });
+        if(!confirm(list.length + '件の候補をすべて不要にします。よろしいですか？')) return;
+        list.forEach(function(c){ dropCandidate(c.id); });
+        render();
+        return;
+      }
+      var btn = e.target.closest('[data-cand-act]');
+      if(!btn) return;
+      var row = btn.closest('[data-cand]');
+      var id = row.dataset.cand;
+      if(btn.dataset.candAct === 'drop'){ dropCandidate(id); render(); return; }
+      var title = row.querySelector('.c-title').value.trim();
+      if(!title){ alert('タスク名を入れてください。'); return; }
+      acceptCandidate(id, title, row.querySelector('.c-owner').value.trim(), row.querySelector('.c-due').value);
+    });
+  }
+
+  function dropCandidate(id){
+    candidates = candidates.filter(function(c){ return c.id !== id; });
+    queueSave(id, null);
+  }
+
+  function acceptCandidate(id, title, owner, dueDate){
+    var c = candidates.find(function(x){ return x.id === id; });
+    if(!c) return;
+    var notes = '議事録「'+(c.meeting||'')+'」より';
+    if(c.dueText) notes += '\n期限の記載：'+c.dueText;
+    var now = new Date().toISOString();
+    dropCandidate(id);
+    clearNewFlags();
+    writeTask(null, {
+      title: title, projectId: '', startDate: '', url: c.docUrl || '', owner: owner, dueDate: dueDate || '',
+      priority: 'none', waiting: false, recurrence: 'none', weekdays: [], monthDay: 1, notes: notes,
+      completed: false, completedAt: null, createdAt: now, updatedAt: now, order: Date.now(),
+      subtasks: [], progress: '', isNew: true
+    }, true);
+  }
+
   function render(){
     renderStats();
+    renderInbox();
     document.querySelectorAll('.view-tab').forEach(function(b){
       var on = b.dataset.view === viewMode;
       b.classList.toggle('active', on);
