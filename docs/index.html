@@ -118,6 +118,9 @@
   .task.priority-critical{background:color-mix(in srgb, var(--danger) 9%, var(--surface-alt)); border-left-color:var(--danger);}
   .task.overdue{border-left-color:var(--danger);}
   .task.today{border-left-color:var(--warning);}
+  .task.carried{border-left-color:var(--danger); background:color-mix(in srgb, var(--danger) 6%, var(--surface));}
+  .pill.carried{background:var(--danger); color:#fff; font-weight:700;}
+  .dcard.carried{border-left-color:var(--danger);}
   .task.done{opacity:.6;}
   .task.dragging{opacity:.35;}
   .drag-handle{flex:none; display:flex; align-items:center; padding-top:3px; color:var(--text-muted); cursor:grab; touch-action:none;}
@@ -607,6 +610,24 @@
   }
   function isBareUrl(s){ return /^https?:\/\/\S+$/i.test((s||'').trim()); }
 
+  // 期限切れの印：期限が過ぎた未完了タスクは、期限を今日へずらし、元の期限を overdueFrom に残す
+  // (同じ処理を GAS の importMinutes の先頭でも毎朝行う。どちらが先でも結果は同じ)
+  function isCarried(t){ return !t.completed && !!t.overdueFrom; }
+  function carriedLabel(t){ return '期限切れ '+fmtDue(t.overdueFrom)+'から'; }
+  function rollOverdue(){
+    var today = todayStr();
+    var changed = false;
+    tasks.forEach(function(t){
+      if(t.completed || !t.dueDate || t.dueDate >= today) return;
+      t.overdueFrom = t.overdueFrom || t.dueDate;
+      t.dueDate = today;
+      t.updatedAt = new Date().toISOString();
+      queueSave(t.id, t);
+      changed = true;
+    });
+    return changed;
+  }
+
   function nextDueDate(task){
     var base = parseLocalDate(task.dueDate) || new Date();
     var today = parseLocalDate(todayStr());
@@ -837,6 +858,8 @@
     } else {
       t = tasks.find(function(x){ return x.id === id; });
       if(!t) return;
+      // 期限を自分で変えたら、期限切れの印は外す
+      if('dueDate' in data && data.dueDate !== t.dueDate && !('overdueFrom' in data)) data.overdueFrom = '';
       Object.assign(t, data);
     }
     queueSave(t.id, t);
@@ -849,7 +872,7 @@
       writeTask(task.id, {dueDate: nd, lastDoneAt: new Date().toISOString(), completed: false}, false);
     } else {
       var willComplete = !task.completed;
-      writeTask(task.id, {completed: willComplete, completedAt: willComplete ? new Date().toISOString() : null}, false);
+      writeTask(task.id, {completed: willComplete, completedAt: willComplete ? new Date().toISOString() : null, overdueFrom: ''}, false);
     }
   }
 
@@ -952,6 +975,7 @@
       setAllItems(next.concat(keep.filter(function(t){ return outbox.some(function(o){ return o.id === t.id && o.value; }); })));
       version = res.version || 0;
       loaded = true;
+      rollOverdue();   // 最新の内容を取り込んだ直後にだけずらす(古い控えで上書きしないため)
       saveCache();
       setBanner('');
       render();
@@ -980,8 +1004,9 @@
       });
       if(changed) setAllItems(all);
       version = Math.max(version, res.version || 0);
+      var rolled = rollOverdue();   // 日付が変わっていたら、取り込んだ最新の内容に対してずらす
       saveCache();
-      if(changed && !isBusy()) render();
+      if((changed || rolled) && !isBusy()) render();
     }).catch(function(err){
       if(handleAuthError(err)) return;
       setBanner('err', 'スプレッドシートに接続できません。変更はこの端末に保存され、つながったら送ります。');
@@ -1035,6 +1060,7 @@
     if(!API){
       setAllItems(lsGet(LS_LOCAL) || []);
       loaded = true;
+      rollOverdue();
       mode.textContent = 'お試しモード（このブラウザの中だけに保存）';
       setBanner('warn', 'お試しモードです。config.js に GAS の URL を入れると、スプレッドシートに保存されます。');
       render();
@@ -1136,7 +1162,7 @@
   // ---------------------------------------------------------------- 画面の更新
   // GitHub Pages は10分ほどキャッシュされるので、ボタンで最新の画面を取り直せるようにする。
   // version.json の version が APP_VERSION と違えば、新しい画面が公開されている。
-  var APP_VERSION = '2026.10.25.1';
+  var APP_VERSION = '2026.11.02.1';
   var updateNotified = false;
 
   function checkNewVersion(){
@@ -1282,7 +1308,6 @@
     });
     var area = document.getElementById('listArea');
     if(!loaded){ area.innerHTML = '<div class="loading">読み込み中…</div>'; return; }
-
     var term = searchTerm;
     var filtered = tasks.filter(function(t){
       if(!term) return true;
@@ -1432,7 +1457,7 @@
         if(t.priority === 'critical') c += ' priority-critical';
         else if(t.priority === 'high') c += ' priority-high';
         if(t.waiting) c += ' waiting';
-        if(!t.completed && ds < today) c += ' overdue';
+        if(!t.completed && (ds < today || t.overdueFrom)) c += ' overdue';
         if(t.completed) c += ' done';
         return '<span class="'+c+'" title="'+escapeHtml(t.title)+'">'+escapeHtml(t.title)+'</span>';
       }).join('');
@@ -1614,8 +1639,10 @@
     else if(t.priority === 'high') cls += ' priority-high';
     if(done) cls += ' done';
     else if(t.dueDate && t.dueDate < today) cls += ' overdue';
+    else if(isCarried(t)) cls += ' carried';
 
     var meta = [];
+    if(!done && isCarried(t)) meta.push('<span class="pill carried">'+escapeHtml(carriedLabel(t))+'</span>');
     if(t.dueDate && (t.dueDate !== D || done)){
       meta.push('<span class="'+(!done && t.dueDate < today ? 'late' : '')+'">期限 '+fmtDue(t.dueDate)+'</span>');
     }
@@ -2100,9 +2127,11 @@
     else if(t.priority === 'high') cls += ' priority-high';
     if(!t.completed && t.dueDate && t.dueDate < today) cls += ' overdue';
     else if(!t.completed && t.dueDate === today) cls += ' today';
+    if(isCarried(t) && cls.indexOf(' overdue') === -1) cls += ' carried';
     if(t.completed) cls += ' done';
 
-    var pill = t.isNew ? '<span class="pill new">NEW</span>' : '';
+    var pill = isCarried(t) ? '<span class="pill carried">'+escapeHtml(carriedLabel(t))+'</span>' : '';
+    pill += t.isNew ? '<span class="pill new">NEW</span>' : '';
     if(t.priority === 'critical') pill += '<span class="pill critical">最重要</span>';
     else if(t.priority === 'high') pill += '<span class="pill high">高</span>';
     var ownerPill = t.owner ? '<span class="pill owner">@'+escapeHtml(t.owner)+'</span>' : '';
@@ -2197,11 +2226,11 @@
   function renderStats(){
     var today = todayStr();
     var active = tasks.filter(function(t){ return !t.completed; });
-    var overdueCount = active.filter(function(t){ return t.dueDate && t.dueDate < today; }).length;
+    var overdueCount = active.filter(function(t){ return (t.dueDate && t.dueDate < today) || t.overdueFrom; }).length;
     var todayCount = active.filter(function(t){ return t.dueDate === today; }).length;
     document.getElementById('statsRow').innerHTML =
       '<button type="button" class="stat" data-jump=".layout"><b>'+active.length+'</b><span>未完了</span></button>' +
-      '<button type="button" class="stat overdue" data-jump=".overdue-card"><b>'+overdueCount+'</b><span>期限切れ</span></button>' +
+      '<button type="button" class="stat overdue" data-jump=".today-card"><b>'+overdueCount+'</b><span>期限切れ</span></button>' +
       '<button type="button" class="stat today" data-jump=".today-card"><b>'+todayCount+'</b><span>今日締切</span></button>';
   }
 

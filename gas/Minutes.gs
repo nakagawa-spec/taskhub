@@ -25,6 +25,8 @@ function setupMinutes() {
 /** まだ読んでいない議事録から候補を作る。作った候補の件数を返す */
 function importMinutes() {
   ensureSheet_();
+  // 期限切れのタスクを今日へずらす(Rollover.gs)。失敗しても議事録の取り込みは続ける
+  try { rollOverdueTasks_(); } catch (err) { Logger.log('期限のずらしに失敗: ' + err); }
   var log = minutesSheet_();
   var done = {};
   log.getDataRange().getValues().slice(1).forEach(function (r) { done[String(r[0])] = true; });
