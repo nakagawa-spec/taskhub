@@ -6,7 +6,7 @@
  * - 15分ごとに動く importMinutes の先頭から呼ぶ。日付が変わったあとの最初の実行でずれる。
  *   (新しい自動実行の登録は要らない)
  * - 画面(index.html の rollOverdue)も同じ処理をする。どちらが先でも結果は同じ。
- * - プロジェクト・候補・完了済み・期限なしは対象外。
+ * - プロジェクト・候補・完了済み・期限なしは対象外。全員のタスクが対象(持ち主の列は変えない)。
  */
 
 /** ずらしたタスクの件数を返す */
@@ -26,7 +26,7 @@ function rollOverdueTasks_() {
       v.dueDate = today;
       v.updatedAt = new Date().toISOString();
       if (t === null) t = nextVersion_();
-      sh.getRange(i + 1, 1, 1, COLS.length).setValues([[String(values[i][0]), JSON.stringify(v), t, false]]);
+      sh.getRange(i + 1, 1, 1, 4).setValues([[String(values[i][0]), JSON.stringify(v), t, false]]); // 5列目(持ち主)はそのまま
       n++;
     }
     return n;

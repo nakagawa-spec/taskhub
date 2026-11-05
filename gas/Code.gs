@@ -8,16 +8,110 @@
  *   PASSCODE が未設定のあいだは、安全のためすべての読み書きを断る。
  * - 例外はプロジェクトの共有ページ(share.html)。合言葉の代わりに、プロジェクトごとの
  *   共有キー(推測できない長い文字列)で、そのプロジェクトのタスクの閲覧と完了チェックだけできる。
+ *
+ * 2026-11-05 から：会社用の画面(このスクリプトの Webアプリ、会社のアカウントだけ)に移した。
+ * - doGet が画面(index.html)を返す。画面からは google.script.run で th(action, extra) を呼ぶ。
+ * - 開いた人は会社のグーグルアカウントで見分ける(合言葉は使わない)。初めての人は名前を入れて登録(users シート)。
+ * - tasks シートの5列目 user に持ち主のアドレスを入れ、自分の行だけ読み書きできる。
+ *   user が空の行(移す前のもの・議事録の候補)はオーナー(このスクリプトの持ち主＝中川さん)のもの。
+ * - 古い公開(@5、合言葉と GitHub Pages の画面)は共有ページ(share.html)のためだけに残す。
+ *   doPost は共有ページの操作だけ受け付け、ほかは「移りました」と断る。
  */
 
 var MAX_FAIL = 10;          // この回数まちがえると一時ロック
 var LOCK_SEC = 600;         // ロック時間(秒)
-var COLS = ['id', 'json', 'updatedAt', 'deleted'];
+var COLS = ['id', 'json', 'updatedAt', 'deleted', 'user'];
+var USER_COLS = ['email', 'name', 'registeredAt'];
 
 // ---------------------------------------------------------------- 入口
 
-function doGet() {
-  return json_({ ok: true, app: 'taskhub', time: Date.now() });
+function doGet(e) {
+  if (e && e.parameter && e.parameter.ping) return json_({ ok: true, app: 'taskhub', time: Date.now() });
+  return HtmlService.createHtmlOutputFromFile('index')
+    .setTitle('タスクハブ')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover');
+}
+
+// ---------------------------------------------------------------- 会社用の画面から呼ぶ入口
+
+/** 画面の api(action, extra) から呼ばれる。返すものは前の doPost と同じ形 {ok, ...} */
+function th(action, extra) {
+  var req = extra || {};
+  try {
+    var me = activeEmail_();
+    if (!me) return { ok: false, error: '会社のグーグルアカウントで開いてください', code: 'NOLOGIN' };
+    ensureSheet_();
+    if (action === 'whoami') return whoami_(me);
+    if (action === 'register') return register_(me, req.name);
+    if (!userOf_(me)) return { ok: false, error: '初めての方は登録してください', code: 'REGISTER' };
+    var fn = ACTIONS[action];
+    if (!fn) return { ok: false, error: '不明な操作です: ' + action };
+    return fn(req, me);
+  } catch (err) {
+    return { ok: false, error: String(err && err.message || err) };
+  }
+}
+
+function activeEmail_() {
+  return String(Session.getActiveUser().getEmail() || '').trim().toLowerCase();
+}
+
+/** このスクリプトの持ち主(中川さん)。user が空の行の持ち主 */
+function ownerEmail_() {
+  return String(Session.getEffectiveUser().getEmail() || '').trim().toLowerCase();
+}
+
+function rowUser_(r) {
+  return String(r.user || '').trim().toLowerCase() || ownerEmail_();
+}
+
+function usersSheet_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName('users');
+  if (!sh) {
+    sh = ss.insertSheet('users');
+    sh.getRange(1, 1, 1, USER_COLS.length).setValues([USER_COLS]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+/** 登録している人なら {email, name}。オーナーは登録していなくても使える */
+function userOf_(email) {
+  var sh = usersSheet_();
+  var n = sh.getLastRow();
+  if (n > 1) {
+    var rows = sh.getRange(2, 1, n - 1, USER_COLS.length).getValues();
+    for (var i = 0; i < rows.length; i++) {
+      if (String(rows[i][0]).trim().toLowerCase() === email) return { email: email, name: String(rows[i][1] || '') };
+    }
+  }
+  if (email === ownerEmail_()) return { email: email, name: '' };
+  return null;
+}
+
+function whoami_(me) {
+  if (me === ownerEmail_()) stopPasscode();
+  var u = userOf_(me);
+  return { ok: true, email: me, registered: !!u, name: u ? u.name : '', isOwner: me === ownerEmail_() };
+}
+
+function register_(me, name) {
+  name = String(name || '').trim().slice(0, 30);
+  if (!name) return { ok: false, error: '名前を入れてください' };
+  return withLock_(function () {
+    var sh = usersSheet_();
+    var n = sh.getLastRow();
+    var rows = n > 1 ? sh.getRange(2, 1, n - 1, USER_COLS.length).getValues() : [];
+    for (var i = 0; i < rows.length; i++) {
+      if (String(rows[i][0]).trim().toLowerCase() === me) {
+        sh.getRange(i + 2, 2).setValue(name);
+        return whoami_(me);
+      }
+    }
+    sh.appendRow([me, name, new Date()]);
+    return whoami_(me);
+  });
 }
 
 function doPost(e) {
@@ -33,12 +127,8 @@ function doPost(e) {
       ensureSheet_();
       return json_(share(req));
     }
-    var ng = checkPass_(req.pass);
-    if (ng) return json_(ng);
-    ensureSheet_();
-    var fn = ACTIONS[req.action];
-    if (!fn) return json_({ ok: false, error: '不明な操作です: ' + req.action });
-    return json_(fn(req));
+    // 合言葉での読み書きはやめた(会社用の画面へ移したため)。古い画面には移った先を知らせる
+    return json_({ ok: false, error: 'タスクハブは会社用の画面に移りました。新しいURLから開いてください', code: 'MOVED' });
   } catch (err) {
     return json_({ ok: false, error: String(err && err.message || err) });
   }
@@ -58,6 +148,15 @@ var SHARE_ACTIONS = {
 
 // ---------------------------------------------------------------- 合言葉
 
+/** 古い公開でも合言葉を使えなくする */
+function stopPasscode() {
+  var props = PropertiesService.getScriptProperties();
+  if (props.getProperty('PASSCODE') !== null) {
+    props.deleteProperty('PASSCODE');
+    Logger.log('古い画面の合言葉を停止しました（PASSCODE を削除）');
+  }
+}
+
 function checkPass_(pass) {
   var code = String(PropertiesService.getScriptProperties().getProperty('PASSCODE') || '').trim();
   if (!code) return { ok: false, error: 'GAS のスクリプト プロパティ PASSCODE が設定されていません', code: 'NO_PASSCODE' };
@@ -73,11 +172,12 @@ function checkPass_(pass) {
 
 // ---------------------------------------------------------------- データ
 
-function load_() {
+function load_(req, me) {
   var tasks = {};
   var max = 0;
   rows_().forEach(function (r) {
     max = Math.max(max, Number(r.updatedAt) || 0);
+    if (rowUser_(r) !== me) return;
     if (r.deleted === true) return;
     var v = parse_(r.json);
     if (v) tasks[r.id] = v;
@@ -86,7 +186,7 @@ function load_() {
 }
 
 /** since より後に変わったものだけ返す(削除は null) */
-function changes_(req) {
+function changes_(req, me) {
   var since = Number(req.since) || 0;
   var tasks = {};
   var max = since;
@@ -94,6 +194,7 @@ function changes_(req) {
     var t = Number(r.updatedAt) || 0;
     if (t <= since) return;
     max = Math.max(max, t);
+    if (rowUser_(r) !== me) return;
     tasks[r.id] = r.deleted === true ? null : parse_(r.json);
   });
   return { ok: true, tasks: tasks, version: max };
@@ -102,8 +203,11 @@ function changes_(req) {
 /**
  * まとめて書き込む。ops = [{ id, value }]。value が null なら削除。
  * 同じ id が複数あれば最後のものが勝つ。
+ * me：書き込む人。ほかの人の行は変えられない。省いたとき(議事録の取り込みなど)はオーナー
  */
-function batch_(req) {
+function batch_(req, me) {
+  var owner = ownerEmail_();
+  me = me || owner;
   var ops = req.ops || [];
   if (!ops.length) return { ok: true, version: 0 };
   if (ops.length > 2000) return { ok: false, error: '一度に保存できる件数を超えました' };
@@ -118,7 +222,18 @@ function batch_(req) {
     var sh = sheet_();
     var values = sh.getDataRange().getValues();
     var rowOf = {};
-    for (var i = 1; i < values.length; i++) rowOf[String(values[i][0])] = i;
+    for (var i = 1; i < values.length; i++) {
+      while (values[i].length < COLS.length) values[i].push('');
+      rowOf[String(values[i][0])] = i;
+    }
+    var userAt = function (i) { return String(values[i][4] || '').trim().toLowerCase() || owner; };
+    var skipped = [];
+    Object.keys(last).forEach(function (id) {
+      if (id in rowOf && userAt(rowOf[id]) !== me) {
+        skipped.push(id);
+        delete last[id];
+      }
+    });
     var t = nextVersion_();
     var appends = [];
     var removedProjects = {};
@@ -127,21 +242,21 @@ function batch_(req) {
         var old = parse_(values[rowOf[id]][1]);
         if (old && old.kind === 'project') removedProjects[id] = true;
       }
-      var row = [id, last[id] || '', t, last[id] === null];
+      var row = [id, last[id] || '', t, last[id] === null, id in rowOf ? values[rowOf[id]][4] : (me === owner ? '' : me)];
       if (id in rowOf) values[rowOf[id]] = row;
       else appends.push(row);
     });
     // プロジェクトを消したら、そのタスクも全部消す(画面にまだ届いていないタスクも残さないため)
     if (Object.keys(removedProjects).length) {
       for (var j = 1; j < values.length; j++) {
-        if (values[j][3] === true) continue;
+        if (values[j][3] === true || userAt(j) !== me) continue;
         var v = parse_(values[j][1]);
-        if (v && v.projectId && removedProjects[v.projectId]) values[j] = [values[j][0], '', t, true];
+        if (v && v.projectId && removedProjects[v.projectId]) values[j] = [values[j][0], '', t, true, values[j][4]];
       }
     }
     if (values.length > 1) sh.getRange(2, 1, values.length - 1, COLS.length).setValues(values.slice(1));
     if (appends.length) sh.getRange(values.length + 1, 1, appends.length, COLS.length).setValues(appends);
-    return { ok: true, version: t };
+    return { ok: true, version: t, skipped: skipped };
   });
 }
 
@@ -218,7 +333,7 @@ function shareToggle_(req) {
       t.updatedAt = now;
       t.isNew = false;
       var v = nextVersion_();
-      sh.getRange(i + 1, 1, 1, COLS.length).setValues([[tid, JSON.stringify(t), v, false]]);
+      sh.getRange(i + 1, 1, 1, 4).setValues([[tid, JSON.stringify(t), v, false]]); // 5列目(持ち主)はそのまま
       return { ok: true, version: v };
     }
     return { ok: false, error: 'このタスクは見つかりません(削除された可能性があります)', code: 'NOTASK' };
@@ -230,7 +345,11 @@ function shareToggle_(req) {
 function ensureSheet_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sh = ss.getSheetByName('tasks');
-  if (sh) return;
+  if (sh) {
+    // 5列目(user)を足す前のシートには見出しだけ足す(中身が空ならオーナーのもの)
+    if (String(sh.getRange(1, 5).getValue()) !== 'user') sh.getRange(1, 5).setValue('user').setFontWeight('bold');
+    return;
+  }
   sh = ss.insertSheet('tasks');
   sh.getRange(1, 1, 1, COLS.length).setValues([COLS]).setFontWeight('bold');
   sh.setFrozenRows(1);
@@ -272,5 +391,12 @@ function json_(obj) {
 /** 動作確認用:エディタから実行するとシートを作る */
 function setup() {
   ensureSheet_();
-  Logger.log('シートの準備ができました。PASSCODE の設定も忘れずに');
+  Logger.log('シートの準備ができました');
+}
+
+/** 許可を出すために、オーナーが編集画面から1回だけ実行する(会社のアカウントを見分ける許可 userinfo.email など) */
+function allowAccess() {
+  ensureSheet_();
+  usersSheet_();
+  Logger.log('許可できました。持ち主：' + ownerEmail_());
 }
