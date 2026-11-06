@@ -26,6 +26,7 @@ var USER_COLS = ['email', 'name', 'registeredAt'];
 // ---------------------------------------------------------------- 入口
 
 function doGet(e) {
+  if (e && e.parameter && e.parameter.page === 'kouhou') return kpPage_();
   if (e && e.parameter && e.parameter.ping) return json_({ ok: true, app: 'taskhub', time: Date.now() });
   return HtmlService.createHtmlOutputFromFile('index')
     .setTitle('タスクハブ')
@@ -194,7 +195,11 @@ function changes_(req, me) {
     var t = Number(r.updatedAt) || 0;
     if (t <= since) return;
     max = Math.max(max, t);
-    if (rowUser_(r) !== me) return;
+    if (rowUser_(r) !== me) {
+      var moved = parse_(r.json);
+      if (moved && moved.kouhouProjectId && Array.isArray(moved.kouhouPreviousUsers) && moved.kouhouPreviousUsers.indexOf(me) >= 0) tasks[r.id] = null;
+      return;
+    }
     tasks[r.id] = r.deleted === true ? null : parse_(r.json);
   });
   return { ok: true, tasks: tasks, version: max };
@@ -234,6 +239,20 @@ function batch_(req, me) {
         delete last[id];
       }
     });
+    /* 共有タスクの担当・所属は広報室画面で管理する。古い個人画面からの保存でも戻さない。 */
+    Object.keys(last).forEach(function (id) {
+      if (!(id in rowOf)) return;
+      var shared = parse_(values[rowOf[id]][1]);
+      if (!shared || !shared.kouhouProjectId) return;
+      if (last[id] === null || values[rowOf[id]][3] === true) {
+        throw new Error('広報室プロジェクトの画面で消してください');
+      }
+      var incoming = Object.assign({}, shared, parse_(last[id]));
+      ['kouhouProjectId', 'kouhouProjectName', 'assigneeType', 'assigneeEmail', 'assigneeName', 'kouhouPreviousUsers', 'owner'].forEach(function (key) {
+        if (key in shared) incoming[key] = shared[key]; else delete incoming[key];
+      });
+      last[id] = JSON.stringify(incoming);
+    });
     var t = nextVersion_();
     var appends = [];
     var removedProjects = {};
@@ -251,7 +270,7 @@ function batch_(req, me) {
       for (var j = 1; j < values.length; j++) {
         if (values[j][3] === true || userAt(j) !== me) continue;
         var v = parse_(values[j][1]);
-        if (v && v.projectId && removedProjects[v.projectId]) values[j] = [values[j][0], '', t, true, values[j][4]];
+        if (v && !v.kouhouProjectId && v.projectId && removedProjects[v.projectId]) values[j] = [values[j][0], '', t, true, values[j][4]];
       }
     }
     if (values.length > 1) sh.getRange(2, 1, values.length - 1, COLS.length).setValues(values.slice(1));

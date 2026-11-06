@@ -20,7 +20,7 @@ function rollOverdueTasks_() {
     for (var i = 1; i < values.length; i++) {
       if (values[i][0] === '' || values[i][3] === true) continue;
       var v = parse_(values[i][1]);
-      if (!v || v.kind === 'project' || v.kind === 'candidate') continue;
+      if (!v || v.kind === 'project' || v.kind === 'candidate' || v.kind === 'kouhouProject') continue;
       if (v.completed || !v.dueDate || String(v.dueDate) >= today) continue;
       v.overdueFrom = v.overdueFrom || v.dueDate;
       v.dueDate = today;

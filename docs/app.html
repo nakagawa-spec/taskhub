@@ -469,6 +469,7 @@
         プロジェクト
       </button>
     </div>
+    <a id="kouhouLink" class="btn" target="_blank" rel="noopener" hidden>広報室プロジェクト</a>
     <div class="searchrow">
       <input type="text" id="searchInput" placeholder="タスク名・備考・URLで検索">
     </div>
@@ -736,7 +737,8 @@
 
   // プロジェクトのタスクは開始日を持ち、繰り返しにはできない(ガントチャートで期間を表すため)
   function syncFormFields(){
-    var inProject = !!document.getElementById('f_project').value;
+    var shared = tasks.some(function(t){ return t.id === editingId && t.kouhouProjectId; });
+    var inProject = shared || !!document.getElementById('f_project').value;
     document.getElementById('startField').hidden = !inProject;
     document.getElementById('recurrenceField').hidden = inProject;
     if(inProject) document.getElementById('f_recurrence').value = 'none';
@@ -761,6 +763,9 @@
     document.getElementById('f_title').value = task ? task.title : '';
     document.getElementById('f_url').value = task ? (task.url||'') : '';
     document.getElementById('f_owner').value = task ? (task.owner||'') : '';
+    document.getElementById('f_owner').readOnly = !!(task && task.kouhouProjectId);
+    document.getElementById('f_owner').title = task && task.kouhouProjectId ? '担当の変更は広報室プロジェクトの画面で行ってください' : '';
+    document.getElementById('f_project').disabled = !!(task && task.kouhouProjectId);
     document.getElementById('f_due').value = task ? (task.dueDate||'') : '';
     document.getElementById('f_priority').value = task ? (task.priority||'none') : 'none';
     document.getElementById('f_waiting').checked = task ? !!task.waiting : false;
@@ -792,7 +797,9 @@
     }
     if(!title) return;
     var projectId = document.getElementById('f_project').value;
-    var startDate = projectId ? document.getElementById('f_start').value : '';
+    var original = tasks.find(function(t){ return t.id === editingId; });
+    var shared = original && original.kouhouProjectId;
+    var startDate = projectId || shared ? document.getElementById('f_start').value : '';
     var dueDate = document.getElementById('f_due').value || '';
     if(startDate && dueDate && startDate > dueDate){
       alert('開始日が期限より後になっています。日付を確かめてください。');
@@ -807,7 +814,7 @@
       dueDate: dueDate,
       priority: document.getElementById('f_priority').value,
       waiting: document.getElementById('f_waiting').checked,
-      recurrence: projectId ? 'none' : document.getElementById('f_recurrence').value,
+      recurrence: projectId || shared ? 'none' : document.getElementById('f_recurrence').value,
       weekdays: Array.from(selectedWeekdays),
       monthDay: parseInt(document.getElementById('f_monthday').value,10) || 1,
       notes: document.getElementById('f_notes').value.trim(),
@@ -889,6 +896,8 @@
 
   var pendingDelete = null;
   function deleteTask(id){
+    var shared = tasks.find(function(t){ return t.id === id && t.kouhouProjectId; });
+    if(shared){ alert('広報室プロジェクトの画面で消してください'); return; }
     tasks = tasks.filter(function(t){ return t.id !== id; });
     queueSave(id, null);
     render();
@@ -1109,6 +1118,10 @@
   }
 
   function initGas(){
+    google.script.run.withSuccessHandler(function(url){
+      var link = document.getElementById('kouhouLink');
+      if(url){ link.href = url + '?page=kouhou'; link.hidden = false; }
+    }).withFailureHandler(function(){}).taskhubUrl();
     document.getElementById('modeLabel').textContent = '会社のアカウントを確かめています…';
     api('whoami').then(function(res){
       if(res.registered) startAsMe(res);
@@ -1281,7 +1294,7 @@
   // ---------------------------------------------------------------- 画面の更新
   // GitHub Pages は10分ほどキャッシュされるので、ボタンで最新の画面を取り直せるようにする。
   // version.json の version が APP_VERSION と違えば、新しい画面が公開されている。
-  var APP_VERSION = '2026.11.05.1';
+  var APP_VERSION = '2026.11.06.1';
   var updateNotified = false;
 
   function checkNewVersion(){
@@ -1784,7 +1797,7 @@
       (done ? '' : '<span class="dgrip" title="ドラッグで移動">'+iconGrip()+'</span>') +
       '<input type="checkbox" class="check" data-dact="check" '+(done?'checked':'')+(lockCheck?' disabled title="完了済み（次回の期限へ進みました）"':'')+'>' +
       '<div class="dcard-body">' +
-        '<div class="dcard-title">'+escapeHtml(t.title)+'</div>' +
+        '<div class="dcard-title">'+escapeHtml(t.title)+(t.kouhouProjectId ? projectPill(t) : '')+'</div>' +
         (meta.length ? '<div class="dcard-meta">'+meta.join('')+'</div>' : '') +
       '</div>' +
       '<div class="dcard-actions">' +
@@ -1996,6 +2009,7 @@
     try{ localStorage.setItem(LS_PROJECT, id || ''); }catch(e){}
   }
   function projectPill(t){
+    if(t.kouhouProjectId) return '<span class="pill project">広報室：'+escapeHtml(t.kouhouProjectName || '')+'</span>';
     var p = t.projectId && findProject(t.projectId);
     return p ? '<span class="pill project">'+iconProject()+escapeHtml(p.name)+'</span>' : '';
   }
@@ -2467,8 +2481,8 @@
     if(doneBtn) doneBtn.addEventListener('click', function(){ showDone = !showDone; render(); });
     var clearBtn = document.getElementById('clearDoneBtn');
     if(clearBtn) clearBtn.addEventListener('click', function(){
-      // プロジェクトのタスクはガントチャートの実績なので残す(プロジェクトを削除すると一緒に消える)
-      var doneIds = tasks.filter(function(t){ return t.completed && !findProject(t.projectId); }).map(function(t){ return t.id; });
+      // プロジェクトのタスクはガントチャートの実績なので残す(プロジェクトを削除すると一緒に消える)。広報室のタスクは広報室の画面で消す
+      var doneIds = tasks.filter(function(t){ return t.completed && !t.kouhouProjectId && !findProject(t.projectId); }).map(function(t){ return t.id; });
       doneIds.forEach(function(id){ deleteTask(id); });
     });
     wireDragAndDrop();
