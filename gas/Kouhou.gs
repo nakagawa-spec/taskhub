@@ -48,25 +48,40 @@ function kp(action, req) {
     return withLock_(function () {
       ensureSheet_();
       if (action === 'load' || action === 'changes') return kpLoad_(auth, action, req);
+      if (action === 'saveMemo' && req.id === KP_MEMO_ID) return kpSaveAllMemo_(req);
       return kpWrite_(action, req, auth);
     });
   } catch (e) { return { ok: false, error: String(e.message || e) }; }
 }
 
 function kpLoad_(auth, action, req) {
-  var projects = {}, tasks = {}, version = 0;
+  var projects = {}, tasks = {}, version = 0, memo = '';
   rows_().forEach(function (r) {
     version = Math.max(version, Number(r.updatedAt) || 0);
     if (r.deleted === true) return;
     var v = parse_(r.json);
     if (!v) return;
-    if (v.kind === 'kouhouProject' && r.user === '__kouhou__') projects[r.id] = v;
+    if (v.kind === 'kouhouMemo' && r.user === '__kouhou__') memo = v.notes || '';
+    else if (v.kind === 'kouhouProject' && r.user === '__kouhou__') projects[r.id] = v;
     else if (v.kouhouProjectId) tasks[r.id] = v;
   });
   Object.keys(tasks).forEach(function (id) { if (!projects[tasks[id].kouhouProjectId]) delete tasks[id]; });
   if (action === 'changes' && version <= (Number(req.since) || 0)) return { ok: true, changed: false, version: version };
-  return { ok: true, changed: true, projects: projects, tasks: tasks, members: auth.members,
+  return { ok: true, changed: true, projects: projects, tasks: tasks, memo: memo, members: auth.members,
     me: auth.me, version: version, taskhubUrl: ScriptApp.getService().getUrl() };
+}
+
+// 「全体」の画面のメモ（広報室みんなで共通）。tasks シートの決まった1行に入れる
+var KP_MEMO_ID = 'kouhou_memo';
+function kpSaveAllMemo_(req) {
+  var sh = sheet_(), values = sh.getDataRange().getValues(), row = 0, old = {};
+  for (var i = 1; i < values.length; i++) if (String(values[i][0]) === KP_MEMO_ID) { row = i + 1; old = parse_(values[i][1]) || {}; break; }
+  var now = new Date().toISOString();
+  var v = { kind: 'kouhouMemo', notes: kpText_(req.notes, 20000), createdAt: old.createdAt || now, updatedAt: now };
+  var version = nextVersion_();
+  sh.getRange(row || sh.getLastRow() + 1, 1, 1, COLS.length).setValues([[KP_MEMO_ID, JSON.stringify(v), version, false, '__kouhou__']]);
+  SpreadsheetApp.flush();
+  return { ok: true, id: KP_MEMO_ID, version: version };
 }
 
 function kpText_(v, max) { return String(v == null ? '' : v).trim().slice(0, max); }
@@ -83,7 +98,7 @@ function kpDate_(v) {
 }
 
 function kpWrite_(action, req, auth) {
-  if (['saveProject', 'deleteProject', 'saveTask', 'deleteTask', 'toggleTask'].indexOf(action) < 0) throw new Error('不明な操作です');
+  if (['saveProject', 'deleteProject', 'saveMemo', 'saveTask', 'deleteTask', 'toggleTask'].indexOf(action) < 0) throw new Error('不明な操作です');
   var sh = sheet_(), rows = rows_(), byId = {};
   rows.forEach(function (r, i) { byId[r.id] = r; });
   var values = sh.getDataRange().getValues(), rowAt = {};
@@ -91,7 +106,7 @@ function kpWrite_(action, req, auth) {
   var id = kpText_(req.id, 100), oldRow = id ? byId[id] : null;
   var old = oldRow && oldRow.deleted !== true ? parse_(oldRow.json) : null;
   if (id && !old) throw new Error('対象が見つかりません。読み直してください');
-  var isProject = action === 'saveProject' || action === 'deleteProject';
+  var isProject = action === 'saveProject' || action === 'deleteProject' || action === 'saveMemo';
   if (old && (isProject ? old.kind !== 'kouhouProject' || oldRow.user !== '__kouhou__' : !old.kouhouProjectId)) throw new Error('共有プロジェクトの対象ではありません');
   if (!id && action !== 'saveProject' && action !== 'saveTask') throw new Error('対象を選んでください');
   var now = new Date().toISOString(), writes = [];
@@ -109,7 +124,12 @@ function kpWrite_(action, req, auth) {
     put(tid, t, email, false);
   }
   var input = req.value || {};
-  if (isProject) {
+  // メモ欄の自動保存：プロジェクトのメモだけ書き換える（中のタスクは触らない）
+  if (action === 'saveMemo') {
+    if (!old) throw new Error('対象を選んでください');
+    old.notes = kpText_(req.notes, 10000);
+    put(id, old, '__kouhou__', false);
+  } else if (isProject) {
     var p;
     if (action === 'saveProject') {
       var leader = kpMember_(input.leader, auth);

@@ -279,6 +279,39 @@
 
   /* ---- プロジェクト(ガントチャート) ---- */
   .pill.project{background:var(--surface); color:var(--accent); border:1px solid color-mix(in srgb, var(--accent) 35%, var(--border)); font-weight:500; display:inline-flex; align-items:center; gap:3px;}
+  /* 広報室タブ */
+  .kp-filters{display:flex; gap:8px 16px; flex-wrap:wrap; align-items:center; font-size:.8rem; color:var(--text-muted);}
+  .kp-filters select{font:inherit; color:var(--text); border:1px solid var(--border); border-radius:8px; padding:4px 8px; background:var(--surface);}
+  .kp-err{color:var(--danger); font-size:.8rem; white-space:pre-wrap;}
+  .kp-proj summary{list-style:none; cursor:pointer; display:flex; gap:10px; align-items:flex-start;}
+  .kp-proj summary::-webkit-details-marker{display:none;}
+  .kp-arrow{flex:none; width:0; height:0; margin-top:8px; border-left:7px solid var(--text-muted); border-top:5px solid transparent; border-bottom:5px solid transparent; transition:transform .15s ease;}
+  .kp-arrow{display:inline-block; vertical-align:middle; margin:0 8px 3px 0;}
+  .kp-card:not(.kp-closed) .kp-arrow{transform:rotate(90deg);}
+  .kp-toggle{cursor:pointer;}
+  .kp-card.kp-closed{gap:0;}
+  .kp-allbtns{margin-left:auto; display:inline-flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:flex-end;}
+  .kp-mine{display:inline-flex; align-items:center; gap:4px; font-size:.75rem; font-weight:700; color:var(--text); cursor:pointer; margin-right:6px;}
+  .kp-allbtns button{font-size:.72rem; font-weight:700; color:var(--text); background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:4px 10px; cursor:pointer; font-family:inherit;}
+  .kp-allbtns button:hover{border-color:var(--accent); color:var(--accent);}
+  .kp-body{display:flex; flex-direction:column; gap:11px; margin-top:11px;}
+  .kp-proj:not([open]){gap:0;}
+  .proj-sub b.kp-txt{font-family:inherit; font-weight:700;}
+  .kp-note{font-size:.8rem; color:var(--text-muted); white-space:pre-wrap; word-break:break-word;}
+  .kp-memo{margin-top:10px;}
+  .kp-memo-head{display:flex; align-items:baseline; gap:10px; margin-bottom:4px; font-size:.85rem;}
+  .kp-memo textarea{width:100%; box-sizing:border-box; min-height:110px; resize:vertical; padding:8px 10px; font:inherit; font-size:.88rem; line-height:1.6; color:var(--text); background:var(--surface); border:1px solid var(--border); border-radius:8px;}
+  .kp-memo textarea:focus{outline:2px solid var(--accent); outline-offset:-1px;}
+  .kp-view .g-bar{cursor:pointer;}
+  .kp-dialog{border:1px solid var(--border); border-radius:16px; max-width:560px; width:calc(100% - 28px); max-height:90vh; padding:20px; color:var(--text); background:var(--surface);}
+  .kp-dialog::backdrop{background:rgba(30,30,25,.4);}
+  .kp-dialog h2{margin:0 0 12px; font-size:1.05rem;}
+  .kp-field{display:block; margin:10px 0; font-size:.8rem; font-weight:700;}
+  .kp-field input,.kp-field select,.kp-field textarea{display:block; width:100%; margin-top:4px; font:inherit; font-weight:400; font-size:.9rem; color:var(--text); border:1px solid var(--border); border-radius:8px; padding:8px; background:var(--surface); box-sizing:border-box;}
+  .kp-field textarea{min-height:80px; resize:vertical;}
+  .kp-two{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  .kp-dialog .kp-primary{background:var(--accent); color:#fff; border-color:var(--accent);}
+  @media (max-width:600px){ .kp-two{grid-template-columns:1fr; gap:0;} .kp-dialog{padding:14px;} }
   .proj-view{display:flex; flex-direction:column; gap:16px;}
   .proj-picker{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
   .proj-chip{display:inline-flex; align-items:center; gap:8px; border:1px solid var(--border); background:var(--surface-alt); color:var(--text); border-radius:10px; padding:8px 12px; font-family:inherit; font-size:.84rem; font-weight:700; cursor:pointer; max-width:100%;}
@@ -468,8 +501,11 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M3 5h9M7 12h10M10 19h11" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
         プロジェクト
       </button>
+      <button type="button" class="view-tab" role="tab" data-view="kouhou" id="kouhouTab" hidden>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.8"/><circle cx="16.5" cy="9" r="2.5" stroke="currentColor" stroke-width="1.8"/><path d="M3 19c.6-3 2.6-5 5-5s4.4 2 5 5M13.5 18.5c.4-2.3 1.6-3.8 3-3.8s2.6 1.5 3 3.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        広報室
+      </button>
     </div>
-    <a id="kouhouLink" class="btn" target="_blank" rel="noopener" hidden>広報室プロジェクト</a>
     <div class="searchrow">
       <input type="text" id="searchInput" placeholder="タスク名・備考・URLで検索">
     </div>
@@ -587,7 +623,7 @@
   var editingDue = new Set();
   var dragState = {id:null, container:null};
   var viewMode = 'list';
-  try{ var savedView = localStorage.getItem('taskhub.view'); if(savedView === 'calendar' || savedView === 'day' || savedView === 'project') viewMode = savedView; }catch(e){}
+  try{ var savedView = localStorage.getItem('taskhub.view'); if(savedView === 'calendar' || savedView === 'day' || savedView === 'project' || savedView === 'kouhou') viewMode = savedView; }catch(e){}
   var calMonth = (function(){ var d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); })();
   var calSelected = null;
 
@@ -715,7 +751,7 @@
     // ガントチャートは横幅に合わせて日数を決めるので、幅が変わったら描き直す
     var resizeTimer = null, lastWidth = window.innerWidth;
     window.addEventListener('resize', function(){
-      if(viewMode !== 'project' || window.innerWidth === lastWidth) return;
+      if((viewMode !== 'project' && viewMode !== 'kouhou') || window.innerWidth === lastWidth) return;
       lastWidth = window.innerWidth;
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(function(){ if(!isBusy()) render(); }, 200);
@@ -1118,10 +1154,18 @@
   }
 
   function initGas(){
-    google.script.run.withSuccessHandler(function(url){
-      var link = document.getElementById('kouhouLink');
-      if(url){ link.href = url + '?page=kouhou'; link.hidden = false; }
-    }).withFailureHandler(function(){}).taskhubUrl();
+    // 広報室タブは会社用の画面だけ。URL に ?view=kouhou（または ?page=kouhou）があれば広報室タブで開く（AI広報室の会議室から）
+    document.getElementById('kouhouTab').hidden = false;
+    try{
+      google.script.url.getLocation(function(loc){
+        var q = loc && loc.parameter || {};
+        if(q.view === 'kouhou' || q.page === 'kouhou'){
+          viewMode = 'kouhou';
+          try{ localStorage.setItem('taskhub.view', viewMode); }catch(e){}
+          render();
+        }
+      });
+    }catch(e){}
     document.getElementById('modeLabel').textContent = '会社のアカウントを確かめています…';
     api('whoami').then(function(res){
       if(res.registered) startAsMe(res);
@@ -1294,7 +1338,7 @@
   // ---------------------------------------------------------------- 画面の更新
   // GitHub Pages は10分ほどキャッシュされるので、ボタンで最新の画面を取り直せるようにする。
   // version.json の version が APP_VERSION と違えば、新しい画面が公開されている。
-  var APP_VERSION = '2026.11.06.1';
+  var APP_VERSION = '2026.11.06.2';
   var updateNotified = false;
 
   function checkNewVersion(){
@@ -1454,6 +1498,15 @@
     var done = filtered.filter(function(t){ return t.completed; });
     done.sort(function(a,b){ return (b.completedAt||'').localeCompare(a.completedAt||''); });
 
+    if(viewMode === 'kouhou' && !IN_GAS) viewMode = 'list';
+    if(viewMode === 'kouhou'){
+      area.innerHTML = renderKouhou();
+      wireKouhouEvents();
+      area.querySelectorAll('.kp-card:not(.kp-closed)').forEach(function(el){ TaskhubGantt.scrollToToday(el); });
+      kpStartTimer();
+      if(!KP.loaded && !KP.loading && !KP.err) kpLoad(false);
+      return;
+    }
     if(viewMode === 'calendar'){
       area.innerHTML = renderCalendar(filtered);
       wireRowEvents();
@@ -2230,6 +2283,7 @@
   }
 
   function addFromGantt(){
+    if(viewMode === 'kouhou'){ kpAddFromGantt(); return; }
     var title = (gDraft.title || '').trim();
     if(!title || !selectedProjectId) return;
     var now = new Date().toISOString();
@@ -2541,6 +2595,419 @@
       if(t && t.order !== idx*10) writeTask(id, {order: idx*10}, false);
     });
   }
+
+  // ---------------------------------------------------------------- 広報室タブ（広報室で共有するプロジェクト。会社用の画面だけ）
+  // データは GAS の kp(action, req)（Kouhou.gs）で出し入れする。プロジェクトごとに開け閉めでき、中はガントチャート。
+  // 自分が担当のタスクは、今まで通り自分のリスト・DAY・カレンダーにも「広報室：名前」の札つきで出る。
+  var KP = {loaded: false, loading: false, busy: false, err: '', timer: null,
+    data: {projects: {}, tasks: {}, members: [], me: '', version: 0},
+    opened: {}, filter: '', hideDone: false, edit: null};
+  try{ KP.opened = JSON.parse(localStorage.getItem('taskhub.kouhou.open') || '{}') || {}; }catch(e){ KP.opened = {}; }
+  function kpRemember(){ try{ localStorage.setItem('taskhub.kouhou.open', JSON.stringify(KP.opened)); }catch(e){} }
+
+  function kpCall(action, req){
+    return new Promise(function(resolve, reject){
+      if(!IN_GAS){ reject(new Error('広報室は会社用の画面で使えます')); return; }
+      google.script.run
+        .withSuccessHandler(function(r){ if(r && r.ok) resolve(r); else reject(new Error(r && r.error || '読み込めませんでした')); })
+        .withFailureHandler(function(e){ reject(e instanceof Error ? e : new Error(String(e && e.message || e))); })
+        .kp(action, req || {});
+    });
+  }
+  // メモ欄：打つと少し待って自動で保存。打っている間・保存待ちの間は読み直さない
+  var kpMemoTimer = null, kpMemoSaving = false, kpMemoPending = null;
+  function kpMemoBusy(){
+    var m = document.getElementById('kpMemo');
+    return !!kpMemoTimer || kpMemoSaving || !!(m && document.activeElement === m);
+  }
+  var KP_MEMO_ID = 'kouhou_memo';
+  function kpMemoText(pid){ return pid === KP_MEMO_ID ? (KP.data.memo || '') : ((KP.data.projects[pid] || {}).notes || ''); }
+  function kpMemoHtml(pid, saved, placeholder){
+    var text = kpMemoPending && kpMemoPending.pid === pid ? kpMemoPending.text : (saved || '');
+    return '<div class="kp-memo"><div class="kp-memo-head"><b>メモ</b><span class="share-note" id="kpMemoState">打つと自動で保存されます</span></div>' +
+      '<textarea id="kpMemo" data-pid="'+escapeHtml(pid)+'" maxlength="10000" placeholder="'+escapeHtml(placeholder)+'">'+escapeHtml(text)+'</textarea></div>';
+  }
+  function kpMemoState(text){ var el = document.getElementById('kpMemoState'); if(el) el.textContent = text; }
+  function kpMemoSave(){
+    if(kpMemoTimer){ clearTimeout(kpMemoTimer); kpMemoTimer = null; }
+    var m = document.getElementById('kpMemo');
+    if(!kpMemoPending && m) kpMemoPending = {pid: m.dataset.pid, text: m.value};
+    if(!kpMemoPending) return;
+    var pid = kpMemoPending.pid, text = kpMemoPending.text;
+    kpMemoPending = null;
+    if(pid !== KP_MEMO_ID && !KP.data.projects[pid]) return;
+    if(kpMemoText(pid) === text) return;
+    kpMemoSaving = true; kpMemoState('保存中…');
+    kpCall('saveMemo', {id: pid, notes: text}).then(function(){
+      if(pid === KP_MEMO_ID) KP.data.memo = text;
+      else if(KP.data.projects[pid]) KP.data.projects[pid].notes = text;
+      kpMemoSaving = false;
+      var now = new Date();
+      kpMemoState('保存しました（'+now.getHours()+':'+('0'+now.getMinutes()).slice(-2)+'）');
+    }).catch(function(e){
+      kpMemoSaving = false;
+      kpMemoState('保存できませんでした：'+(e.message || String(e)));
+    });
+  }
+  function wireKpMemo(){
+    var m = document.getElementById('kpMemo');
+    if(!m) return;
+    m.addEventListener('input', function(){
+      kpMemoPending = {pid: m.dataset.pid, text: m.value};
+      kpMemoState('入力中…');
+      if(kpMemoTimer) clearTimeout(kpMemoTimer);
+      kpMemoTimer = setTimeout(kpMemoSave, 1200);
+    });
+    m.addEventListener('blur', kpMemoSave);
+  }
+  window.addEventListener('beforeunload', function(){ if(kpMemoTimer) kpMemoSave(); });
+  function kpDialogOpen(){ var d = document.getElementById('kpDialog'); return !!(d && d.open); }
+  function kpLoad(changes){
+    if(KP.loading) return Promise.resolve();
+    if(changes && (KP.busy || kpDialogOpen() || document.hidden || kpMemoBusy())) return Promise.resolve();
+    KP.loading = true;
+    return kpCall(changes ? 'changes' : 'load', {since: KP.data.version}).then(function(r){
+      KP.err = '';
+      if(r.changed !== false){ KP.data = r; KP.loaded = true; }
+      if(viewMode === 'kouhou' && !kpDialogOpen()) render();
+    }).catch(function(e){
+      KP.err = e.message || String(e);
+      if(viewMode === 'kouhou') render();
+    }).then(function(){ KP.loading = false; });
+  }
+  function kpStartTimer(){
+    if(KP.timer) return;
+    KP.timer = setInterval(function(){ if(viewMode === 'kouhou') kpLoad(true); }, 45000);
+    document.addEventListener('visibilitychange', function(){ if(!document.hidden && viewMode === 'kouhou') kpLoad(true); });
+  }
+
+  function kpMemberName(email){
+    var m = KP.data.members.filter(function(x){ return x.email === email; })[0];
+    return m ? m.name : '';
+  }
+  function kpTasksOf(pid){
+    return Object.keys(KP.data.tasks).map(function(id){
+      var t = KP.data.tasks[id];
+      return Object.assign({}, t, {id: id});
+    }).filter(function(t){ return t.kouhouProjectId === pid; })
+      .sort(function(a, b){ return (a.order || 0) - (b.order || 0); });
+  }
+  // ガントの「@担当」に出す名前。先方・その他は種類が分かるようにする
+  function kpOwnerLabel(t){
+    if(t.assigneeType === 'client') return '先方：' + (t.assigneeName || '');
+    if(t.assigneeType === 'other') return (t.assigneeName || '') + '（その他）';
+    return t.assigneeName || kpMemberName(t.assigneeEmail) || '';
+  }
+
+  // 広報室タブの見た目は「プロジェクト」タブと同じ作り（上にプロジェクトの札と作成欄、下に選んだプロジェクトのガントチャート）。
+  // 札の先頭の「すべて」を選ぶと、全部のプロジェクトのガントを縦に並べて一度に見られる（ここだけ開け閉めと「全部開く／全部閉じる」がある）。
+  var KP_ALL = '__all__', KP_MERGE = '__merge__';
+  try{ KP.mine = localStorage.getItem('taskhub.kouhou.mine') === '1'; }catch(e){ KP.mine = false; }
+  try{ KP.selected = localStorage.getItem('taskhub.kouhou.sel') || KP_MERGE; }catch(e){ KP.selected = KP_MERGE; }
+  function kpSelect(id){
+    if(id !== KP.selected) gDraft = {s: '', e: '', title: '', tap: ''};
+    KP.selected = id;
+    try{ localStorage.setItem('taskhub.kouhou.sel', id); }catch(e){}
+  }
+  function iconKouhou(){ return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none"><circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="2.2"/><circle cx="16.5" cy="9" r="2.5" stroke="currentColor" stroke-width="2.2"/><path d="M3 19c.6-3 2.6-5 5-5s4.4 2 5 5M13.5 18.5c.4-2.3 1.6-3.8 3-3.8s2.6 1.5 3 3.8" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>'; }
+  function kpProjectIds(){
+    var d = KP.data;
+    return Object.keys(d.projects).sort(function(a, b){ return (d.projects[a].order || 0) - (d.projects[b].order || 0); });
+  }
+  // 自分のタスクハブに入るもの：自分が担当のメンバーのタスク＋自分がリーダーのプロジェクトの先方・その他のタスク
+  function kpIsMine(t){
+    var me = KP.data.me;
+    if(t.assigneeType === 'member') return t.assigneeEmail === me;
+    var p = KP.data.projects[t.kouhouProjectId];
+    return !!(p && p.leader === me);
+  }
+  function kpGanttTasks(pid){
+    return kpTasksOf(pid).filter(function(t){ return !KP.mine || kpIsMine(t); }).map(function(t){ return Object.assign({}, t, {owner: kpOwnerLabel(t)}); });
+  }
+
+  // 1つのプロジェクトのカード（「プロジェクト」タブの右側のカードと同じ形）
+  function kpCard(pid, opts){
+    var p = KP.data.projects[pid], today = todayStr();
+    var pts = kpGanttTasks(pid);
+    var s = TaskhubGantt.summary(pts, today);
+    var period = s.start ? TaskhubGantt.mdw(s.start)+' 〜 '+TaskhubGantt.mdw(s.end) : '未定';
+    var narrow = window.innerWidth <= 600;
+    var leader = p.leaderName || kpMemberName(p.leader);
+    var collapsible = !!opts.collapsible, open = !collapsible || KP.opened[pid] !== false;
+    return '<div class="side-card kp-card'+(open ? '' : ' kp-closed')+'" data-kpcard="'+escapeHtml(pid)+'">' +
+      '<div class="proj-head">' +
+        '<div style="min-width:0"'+(collapsible ? ' class="kp-toggle" data-kptoggle="'+escapeHtml(pid)+'" title="クリックで開け閉め"' : '')+'>' +
+          '<h2 class="proj-name">'+(collapsible ? '<span class="kp-arrow" aria-hidden="true"></span>' : '')+escapeHtml(p.name)+'</h2>' +
+          '<div class="proj-sub">' +
+            (p.client ? '<span>先方 <b class="kp-txt">'+escapeHtml(p.client)+'</b></span>' : '') +
+            '<span>リーダー <b class="kp-txt">'+escapeHtml(leader)+'</b></span>' +
+            '<span>期間 <b>'+period+'</b></span><span>完了 <b>'+s.done+'/'+s.total+'</b>（'+s.pct+'%）</span>' +
+            (s.overdue ? '<span class="late">期限切れ '+s.overdue+'件</span>' : '') +
+          '</div>' +
+        '</div>' +
+        '<div class="proj-actions">' +
+          '<button type="button" data-kpact="addTask" data-id="'+escapeHtml(pid)+'">＋ タスクを追加</button>' +
+          '<button type="button" data-kpact="editProject" data-id="'+escapeHtml(pid)+'">先方・リーダーを変更</button>' +
+          '<button type="button" data-kpact="rename" data-id="'+escapeHtml(pid)+'">名前を変更</button>' +
+          '<button type="button" class="danger" data-kpact="deleteProject" data-id="'+escapeHtml(pid)+'">削除</button>' +
+        '</div>' +
+      '</div>' +
+      (open ?
+        '<div class="progressbar" title="完了 '+s.pct+'%"><i style="width:'+s.pct+'%"></i></div>' +
+        (!opts.addRow && p.notes ? '<div class="kp-note">'+escapeHtml(p.notes)+'</div>' : '') +
+        TaskhubGantt.html({tasks: pts, today: today, checkable: true, clickable: true, narrow: narrow,
+          addRow: opts.addRow ? gDraft : null,
+          width: document.getElementById('listArea').clientWidth - (narrow ? 22 : 34),
+          emptyText: 'タスクがまだありません。'}) +
+        (opts.addRow ? kpMemoHtml(pid, p.notes, 'このプロジェクトのメモを自由に書けます（広報室のみんなで共有）') : '')
+      : '') +
+    '</div>';
+  }
+
+  function renderKouhou(){
+    if(!IN_GAS) return '<div class="empty"><b>広報室は会社用の画面で使えます</b></div>';
+    var ids = KP.loaded ? kpProjectIds() : [];
+    if(KP.selected !== KP_ALL && KP.selected !== KP_MERGE && ids.indexOf(KP.selected) < 0) KP.selected = KP_MERGE;
+    var all = KP.selected === KP_ALL, merge = KP.selected === KP_MERGE;
+    var today = todayStr();
+    var chip = function(id, label, small){
+      return '<button type="button" class="proj-chip'+(KP.selected === id ? ' on' : '')+'" data-kpsel="'+escapeHtml(id)+'"><span>'+escapeHtml(label)+'</span><small>'+small+'</small></button>';
+    };
+    var picker =
+      '<div class="side-card">' +
+        '<h3>'+iconKouhou()+' 広報室プロジェクト（'+ids.length+'）' +
+          '<span class="kp-allbtns">' +
+            '<label class="kp-mine"><input type="checkbox" id="kpMine"'+(KP.mine ? ' checked' : '')+'> 自分のだけ</label>' +
+            (all && ids.length ? '<button type="button" data-kpact="openAll">全部開く</button><button type="button" data-kpact="closeAll">全部閉じる</button>' : '') +
+          '</span>' +
+        '</h3>' +
+        '<div class="proj-picker">' +
+          (ids.length ? chip(KP_MERGE, '全体', '1枚') + chip(KP_ALL, 'プロジェクトごと', ids.length+'件') : '') +
+          ids.map(function(pid){
+            var s = TaskhubGantt.summary(kpGanttTasks(pid), today);
+            return chip(pid, KP.data.projects[pid].name, s.done+'/'+s.total);
+          }).join('') +
+          '<form class="proj-new" id="kpNewForm"><input type="text" id="kpNewName" placeholder="新しいプロジェクト名" maxlength="60" aria-label="新しいプロジェクト名"><button type="submit" class="btn primary">作成</button></form>' +
+        '</div>' +
+        '<div class="proj-foot">' +
+          '<div class="g-legend"><span><i style="background:var(--accent)"></i>予定</span><span><i style="background:var(--danger)"></i>期限切れ</span><span><i style="background:var(--wait)"></i>先方待ち</span><span><i style="background:color-mix(in srgb, var(--done) 55%, var(--surface-alt))"></i>完了</span></div>' +
+          '<span class="share-note">担当は「@名前」で出ます。先方・その他の人のタスクは、そのプロジェクトのリーダーのタスクハブに入ります。</span>' +
+        '</div>' +
+        (KP.err ? '<div class="kp-err">'+escapeHtml(KP.err)+'</div>' : '') +
+      '</div>';
+    if(!KP.loaded){
+      return '<div class="proj-view kp-view">'+picker+'<div class="loading">'+(KP.err ? '読み込めませんでした' : '読み込み中…')+'</div></div>';
+    }
+    if(!ids.length){
+      return '<div class="proj-view kp-view">'+picker+
+        '<div class="empty"><b>広報室のプロジェクトはまだありません</b><div>上の欄に名前を入れて「作成」すると、広報室のみんなで見られるガントチャートができます。</div></div></div>';
+    }
+    var main;
+    if(merge) main = kpMergeCard(ids);
+    else if(all) main = ids.map(function(pid){ return kpCard(pid, {collapsible: true, addRow: false}); }).join('');
+    else main = kpCard(KP.selected, {collapsible: false, addRow: true});
+    return '<div class="proj-view kp-view">'+picker+main+'</div>';
+  }
+
+  // 「全体」：全部のプロジェクトのタスクを1つのガントにまとめる（行の下に「@担当 ／ プロジェクト名」）
+  function kpMergeCard(ids){
+    var today = todayStr(), narrow = window.innerWidth <= 600, pts = [];
+    ids.forEach(function(pid){
+      var name = KP.data.projects[pid].name;
+      kpGanttTasks(pid).forEach(function(t){ pts.push(Object.assign({}, t, {owner: t.owner + ' ／ ' + name})); });
+    });
+    var s = TaskhubGantt.summary(pts, today);
+    var period = s.start ? TaskhubGantt.mdw(s.start)+' 〜 '+TaskhubGantt.mdw(s.end) : '未定';
+    return '<div class="side-card kp-card">' +
+      '<div class="proj-head"><div style="min-width:0">' +
+        '<h2 class="proj-name">全体'+(KP.mine ? '（自分のだけ）' : '')+'</h2>' +
+        '<div class="proj-sub"><span>プロジェクト <b>'+ids.length+'</b></span><span>期間 <b>'+period+'</b></span><span>完了 <b>'+s.done+'/'+s.total+'</b>（'+s.pct+'%）</span>' +
+          (s.overdue ? '<span class="late">期限切れ '+s.overdue+'件</span>' : '') + '</div>' +
+      '</div></div>' +
+      '<div class="progressbar" title="完了 '+s.pct+'%"><i style="width:'+s.pct+'%"></i></div>' +
+      TaskhubGantt.html({tasks: pts, today: today, checkable: true, clickable: true, narrow: narrow,
+        width: document.getElementById('listArea').clientWidth - (narrow ? 22 : 34),
+        emptyText: KP.mine ? '自分のタスクはありません。' : 'タスクがまだありません。'}) +
+      kpMemoHtml(KP_MEMO_ID, KP.data.memo, '広報室みんなの共通メモです。自由に書けます') +
+    '</div>';
+  }
+
+  function wireKouhouEvents(){
+    var root = document.querySelector('#listArea .kp-view');
+    if(!root) return;
+    var mine = document.getElementById('kpMine');
+    if(mine) mine.addEventListener('change', function(){
+      KP.mine = mine.checked;
+      try{ localStorage.setItem('taskhub.kouhou.mine', KP.mine ? '1' : '0'); }catch(e){}
+      render();
+    });
+    var form = document.getElementById('kpNewForm');
+    if(form) form.addEventListener('submit', function(e){
+      e.preventDefault();
+      var name = document.getElementById('kpNewName').value.trim();
+      if(!name || KP.busy) return;
+      kpMutate('saveProject', {value: {name: name, client: '', leader: KP.data.me, notes: ''}}).then(function(r){
+        if(r && r.id){ kpSelect(r.id); render(); }
+      });
+    });
+    root.addEventListener('click', function(e){
+      var chip = e.target.closest('[data-kpsel]');
+      if(chip){ kpSelect(chip.dataset.kpsel); render(); return; }
+      var tg = e.target.closest('[data-kptoggle]');
+      if(tg){ var id0 = tg.dataset.kptoggle; KP.opened[id0] = KP.opened[id0] === false; kpRemember(); render(); return; }
+      var g = e.target.closest('[data-gtask]');
+      if(g){ var t = KP.data.tasks[g.dataset.gtask]; if(t) kpOpenEditor('task', g.dataset.gtask, t.kouhouProjectId); return; }
+      var b = e.target.closest('[data-kpact]');
+      if(!b || KP.busy) return;
+      var a = b.dataset.kpact, id = b.dataset.id, p = KP.data.projects[id];
+      if(a === 'openAll' || a === 'closeAll'){
+        Object.keys(KP.data.projects).forEach(function(pid){ KP.opened[pid] = a === 'openAll'; });
+        kpRemember(); render(); return;
+      }
+      if(a === 'editProject'){ kpOpenEditor('project', id); return; }
+      if(a === 'addTask'){ kpOpenEditor('task', '', id); return; }
+      if(a === 'rename' && p){
+        var name = prompt('プロジェクト名', p.name);
+        if(name && name.trim()) kpMutate('saveProject', {id: id, value: {name: name.trim(), client: p.client || '', leader: p.leader, notes: p.notes || ''}});
+        return;
+      }
+      if(a === 'deleteProject'){
+        if(confirm('このプロジェクトと中のタスクをすべて削除しますか？（担当者のタスクハブからも消えます）')) kpMutate('deleteProject', {id: id});
+      }
+    });
+    if(KP.selected !== KP_ALL && KP.selected !== KP_MERGE) wireGanttAddRow(root);
+    wireKpMemo();
+    root.addEventListener('change', function(e){
+      var cb = e.target.closest('[data-gcheck]');
+      if(!cb) return;
+      if(KP.busy){ cb.checked = !cb.checked; return; }
+      kpMutate('toggleTask', {id: cb.dataset.gcheck, done: cb.checked});
+    });
+  }
+
+  // 一番下の行で名前と期間を入れて Enter → 担当を選ぶ画面を、名前と期間を入れた状態で開く
+  function kpAddFromGantt(){
+    var title = (gDraft.title || '').trim();
+    if(!title || KP.selected === KP_ALL || KP.selected === KP_MERGE) return;
+    var pre = {title: title, startDate: gDraft.s || '', dueDate: gDraft.e || ''};
+    gDraft = {s: '', e: '', title: '', tap: ''};
+    kpOpenEditor('task', '', KP.selected, pre);
+  }
+
+  function kpMutate(action, req){
+    KP.busy = true;
+    return kpCall(action, req).then(function(r){
+      KP.busy = false;
+      if(typeof poll === 'function'){ try{ poll(); }catch(e){} }
+      return kpLoad(false).then(function(){ return r || true; });
+    }).catch(function(e){
+      KP.busy = false;
+      if(kpDialogOpen()) document.getElementById('kpFormError').textContent = e.message || String(e);
+      else alert(e.message || String(e));
+      kpLoad(false);
+      return false;
+    });
+  }
+
+  // ---- 広報室のプロジェクト・タスクの入力（ダイアログ）
+  function kpEnsureDialog(){
+    var dlg = document.getElementById('kpDialog');
+    if(dlg) return dlg;
+    dlg = document.createElement('dialog');
+    dlg.id = 'kpDialog';
+    dlg.className = 'kp-dialog';
+    dlg.innerHTML = '<form id="kpForm"><h2 id="kpTitle"></h2><div id="kpFields"></div><p class="kp-err" id="kpFormError" role="alert"></p>' +
+      '<div class="proj-actions"><button type="submit" class="kp-primary" id="kpSave">保存</button>' +
+      '<button type="button" id="kpCancel">キャンセル</button>' +
+      '<button type="button" class="danger" id="kpDelete" hidden>このタスクを削除</button></div></form>';
+    document.body.appendChild(dlg);
+    document.getElementById('kpCancel').addEventListener('click', function(){ if(!KP.busy) dlg.close(); });
+    dlg.addEventListener('cancel', function(e){ if(KP.busy) e.preventDefault(); });
+    dlg.addEventListener('close', function(){ if(viewMode === 'kouhou') render(); });
+    document.getElementById('kpDelete').addEventListener('click', function(){
+      if(KP.busy || !KP.edit || !KP.edit.id) return;
+      if(!confirm('このタスクを削除しますか？（担当者のタスクハブからも消えます）')) return;
+      kpMutate('deleteTask', {id: KP.edit.id}).then(function(ok){ if(ok) dlg.close(); });
+    });
+    document.getElementById('kpForm').addEventListener('submit', function(e){
+      e.preventDefault();
+      if(KP.busy) return;
+      var ed = KP.edit, action, value;
+      var v = function(id){ var el = document.getElementById(id); return el ? el.value : ''; };
+      if(ed.kind === 'project'){
+        action = 'saveProject';
+        value = {name: v('kpName'), client: v('kpClient'), leader: v('kpLeader'), notes: v('kpNotes')};
+      } else {
+        action = 'saveTask';
+        var a = v('kpAssignee');
+        value = {title: v('kpTaskTitle'), kouhouProjectId: ed.pid,
+          assigneeType: a === 'client' || a === 'other' ? a : 'member', assigneeEmail: a,
+          assigneeName: v('kpAssigneeName'), startDate: v('kpStart'), dueDate: v('kpDue'), notes: v('kpNotes')};
+        if(value.startDate && value.dueDate && value.startDate > value.dueDate){
+          document.getElementById('kpFormError').textContent = '開始日が期限より後になっています'; return;
+        }
+      }
+      document.getElementById('kpSave').disabled = true;
+      kpMutate(action, {id: ed.id, value: value}).then(function(ok){
+        document.getElementById('kpSave').disabled = false;
+        if(ok){ if(!ed.id && ed.pid) { KP.opened[ed.pid] = true; kpRemember(); } dlg.close(); }
+      });
+    });
+    return dlg;
+  }
+  function kpField(label, id, value, type, extra){
+    return '<label class="kp-field">'+label+'<input id="'+id+'" type="'+(type || 'text')+'" value="'+escapeHtml(value || '')+'"'+(extra || '')+'></label>';
+  }
+  function kpMemberOptions(selected){
+    return KP.data.members.map(function(m){
+      return '<option value="'+escapeHtml(m.email)+'"'+(m.email === selected ? ' selected' : '')+'>'+escapeHtml(m.name)+'</option>';
+    }).join('');
+  }
+  function kpOpenEditor(kind, id, pid, pre){
+    if(KP.busy) return;
+    var dlg = kpEnsureDialog();
+    KP.edit = {kind: kind, id: id, pid: pid};
+    document.getElementById('kpFormError').textContent = '';
+    document.getElementById('kpDelete').hidden = !(kind === 'task' && id);
+    var fields = document.getElementById('kpFields');
+    if(kind === 'project'){
+      var p = KP.data.projects[id] || {};
+      document.getElementById('kpTitle').textContent = id ? 'プロジェクトを編集' : '新しいプロジェクト';
+      fields.innerHTML =
+        kpField('プロジェクト名', 'kpName', p.name, 'text', ' required maxlength="120"') +
+        kpField('先方（他の会社とのプロジェクトなら会社名など。空でもよい）', 'kpClient', p.client, 'text', ' maxlength="120"') +
+        '<label class="kp-field">プロジェクトリーダー<select id="kpLeader" required>'+kpMemberOptions(p.leader || KP.data.me)+'</select></label>' +
+        '<div class="share-note">先方・その他の人のタスクは、リーダーのタスクハブに入ります。</div>' +
+        '<label class="kp-field">メモ<textarea id="kpNotes" maxlength="10000">'+escapeHtml(p.notes || '')+'</textarea></label>';
+    } else {
+      var t = KP.data.tasks[id] || pre || {}, pr = KP.data.projects[pid] || {};
+      document.getElementById('kpTitle').textContent = (id ? 'タスクを編集' : 'タスクを追加') + '（' + (pr.name || '') + '）';
+      fields.innerHTML =
+        kpField('タスク名', 'kpTaskTitle', t.title, 'text', ' required maxlength="500"') +
+        '<label class="kp-field">担当<select id="kpAssignee" required>' +
+          '<optgroup label="AI広報室のメンバー">'+kpMemberOptions(t.assigneeType === 'member' || !id ? (t.assigneeEmail || KP.data.me) : '')+'</optgroup>' +
+          '<option value="client">先方'+(pr.client ? '（'+escapeHtml(pr.client)+'）' : '')+'</option>' +
+          '<option value="other">その他（名前を入れる）</option></select></label>' +
+        '<div id="kpNameBox">'+kpField('担当の名前', 'kpAssigneeName', t.assigneeType !== 'member' ? t.assigneeName : '', 'text', ' maxlength="120"')+'</div>' +
+        '<div class="share-note" id="kpAssigneeHint"></div>' +
+        '<div class="kp-two">'+kpField('開始日', 'kpStart', t.startDate, 'date')+kpField('期限', 'kpDue', t.dueDate, 'date')+'</div>' +
+        '<label class="kp-field">メモ<textarea id="kpNotes" maxlength="10000">'+escapeHtml(t.notes || '')+'</textarea></label>';
+      var sel = document.getElementById('kpAssignee');
+      if(t.assigneeType && t.assigneeType !== 'member') sel.value = t.assigneeType;
+      var sync = function(){
+        var a = sel.value, external = a === 'client' || a === 'other';
+        var need = a === 'other' || (a === 'client' && !pr.client);
+        document.getElementById('kpNameBox').hidden = !need;
+        document.getElementById('kpAssigneeName').required = need;
+        document.getElementById('kpAssigneeHint').textContent = external
+          ? 'リーダー ' + (pr.leaderName || '') + ' さんのタスクハブに入ります'
+          : '選んだメンバーのタスクハブに入ります';
+      };
+      sel.addEventListener('change', sync); sync();
+    }
+    dlg.showModal();
+  }
+
 })();
 </script>
 

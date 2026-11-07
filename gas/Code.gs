@@ -26,7 +26,7 @@ var USER_COLS = ['email', 'name', 'registeredAt'];
 // ---------------------------------------------------------------- 入口
 
 function doGet(e) {
-  if (e && e.parameter && e.parameter.page === 'kouhou') return kpPage_();
+  /* ?page=kouhou・?view=kouhou も同じ画面。広報室タブで開くかは画面の側で URL を読んで決める */
   if (e && e.parameter && e.parameter.ping) return json_({ ok: true, app: 'taskhub', time: Date.now() });
   return HtmlService.createHtmlOutputFromFile('index')
     .setTitle('タスクハブ')
